@@ -1,0 +1,58 @@
+[
+    {
+        "machine": "Pakona PFS",
+        "station": "Pouch Elevator",
+        "fault": "Pouches not reaching pickup sensor",
+        "possible_causes": [
+            "Elevator height too low",
+            "Sensor dirty",
+            "Sensor distance incorrect",
+            "Multiple pouches feeding together",
+            "Elevator guide worn"
+        ],
+        "checks": [
+            "Clean sensor",
+            "Adjust sensor position",
+            "Check elevator height",
+            "Separate stacked pouches",
+            "Inspect guide rails"
+        ]
+    },
+    {
+        "station": "Pouch picking station",
+        "fault": "Station 1 fails to pick pouch",
+        "possible_causes": [
+            "Low vacuum pressure",
+            "Blocked suction cup",
+            "Vacuum hose leaking"
+        ],
+        "checks": [
+            "Check venturi pressure",
+            "Inspect suction cup",
+            "Replace damaged hose"
+        ]
+    },
+    {
+        "station": "Pouch picking station",
+        "fault": "Pouch not picked by suction cups",
+        "possible_causes": [
+            "Suction cups dirty or contaminated with powder",
+            "Suction cups worn, cracked or hardened",
+            "Vacuum hose loose or leaking",
+            "Venturi ejector blocked",
+            "Vacuum pressure too low",
+            "Suction cup alignment incorrect",
+            "Pouch stack not reaching the pickup position"
+        ],
+        "checks": [
+            "Inspect and clean the suction cups",
+            "Check suction cups for wear, cracks or hardness",
+            "Inspect the vacuum hose and fittings for leakage",
+            "Check and clean the Venturi ejector",
+            "Confirm compressed-air pressure is normal",
+            "Check suction cup alignment with the pouch",
+            "Confirm the elevator positions the pouch correctly",
+            "Test pouch pickup in manual mode"
+        ]
+    }
+]

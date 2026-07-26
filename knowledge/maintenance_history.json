@@ -1,0 +1,34 @@
+[
+    {
+        "record_number": "MNT-000001",
+        "machine_model": "Pakona PFS AG",
+        "recipe_name": "500 g",
+        "station": "Pouch picking station",
+        "fault": "pouch not picked by the suction cups",
+        "confirmed_cause": "suction cups dirty due to a lot of dust powder",
+        "corrective_action": "carefully unmounted the suction cups and cleaned with a piece of cloth soaked in warm water or compressed air",
+        "downtime_minutes": 2.0,
+        "recorded_by": "kangume julius",
+        "production_status": "Machine running",
+        "production_shift": "Afternoon shift",
+        "batch_number": "",
+        "notes": "The pouches were picked and transferred to the next station properly",
+        "image_paths": []
+    },
+    {
+        "record_number": "MNT-000002",
+        "machine_model": "Pakona PFS AG",
+        "recipe_name": "500 g",
+        "station": "Pouch picking station",
+        "fault": "pouch not picked by the suction cups",
+        "confirmed_cause": "suction cups dirty due to a lot of dust powder",
+        "corrective_action": "carefully unmounted the suction cups and cleaned with a piece of cloth soaked in warm water or compressed air",
+        "downtime_minutes": 2.0,
+        "recorded_by": "kangume julius",
+        "production_status": "Machine running",
+        "production_shift": "Afternoon shift",
+        "batch_number": "",
+        "notes": "The pouches were picked and transferred to the next station properly",
+        "image_paths": []
+    }
+]

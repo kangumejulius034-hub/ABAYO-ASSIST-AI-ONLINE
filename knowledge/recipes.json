@@ -1,0 +1,102 @@
+[
+    {
+        "machine_model": "Pakona PFS AG",
+        "recipe_name": "100 g",
+        "status": "Awaiting confirmation",
+        "parameters": {},
+        "notes": "Enter the confirmed machine parameters from the HMI."
+    },
+    {
+        "machine_model": "Pakona PFS AG",
+        "recipe_name": "250 g",
+        "status": "Awaiting confirmation",
+        "parameters": {},
+        "notes": "Enter the confirmed machine parameters from the HMI."
+    },
+    {
+        "machine_model": "Pakona PFS AG",
+        "recipe_name": "340 g",
+        "status": "Awaiting confirmation",
+        "parameters": {},
+        "notes": "Enter the confirmed machine parameters from the HMI."
+    },
+    {
+        "machine_model": "Pakona PFS AG",
+        "recipe_name": "400 g",
+        "status": "Awaiting confirmation",
+        "parameters": {},
+        "notes": "Enter the confirmed machine parameters from the HMI."
+    },
+    {
+        "machine_model": "Pakona PFS AG",
+        "recipe_name": "454 g",
+        "status": "Under review",
+        "parameters": {},
+        "notes": "This recipe has shown greater weight variation and should be compared with the stable 500 g recipe."
+    },
+    {
+        "machine_model": "Pakona PFS AG",
+        "recipe_name": "500 g",
+        "status": "Gold Standard",
+        "parameters": {
+            "Compressed Air": {
+                "delay_deg": "120",
+                "action_deg": "300"
+            },
+            "Cold Seal": {
+                "delay_deg": "30",
+                "action_deg": "170"
+            },
+            "Top Seal": {
+                "delay_deg": "30",
+                "action_deg": "220"
+            },
+            "Pouch Top Pick Vacuum (1st Station)": {
+                "delay_deg": "250",
+                "action_deg": "90"
+            },
+            "Bottom Open SOV for Pouch (4th Station)": {
+                "delay_deg": "18",
+                "action_deg": "135"
+            },
+            "Venturi Bottom Vacuum Ejector (4th Station)": {
+                "delay_deg": "50",
+                "action_deg": "185"
+            },
+            "Venturi Top Open for Pouch (Station 4)": {
+                "delay_deg": "20",
+                "action_deg": "200"
+            },
+            "Pouch Pick Station Sense Zone": {
+                "delay_deg": "170",
+                "action_deg": "250"
+            },
+            "Current Degree": "190"
+        },
+        "notes": "",
+        "hmi_images": [
+            "knowledge/recipe_images/Pakona_PFS_AG/500_g/hmi_20260726_142253_1.jpeg"
+        ]
+    },
+    {
+        "machine_model": "Pakona PFS AG",
+        "recipe_name": "850 g",
+        "status": "Awaiting confirmation",
+        "parameters": {},
+        "notes": "Enter the confirmed machine parameters from the HMI."
+    },
+    {
+        "machine_model": "Pakona PFS AG",
+        "recipe_name": "1000 g",
+        "status": "Awaiting confirmation",
+        "parameters": {},
+        "notes": "Enter the confirmed machine parameters from the HMI."
+    },
+    {
+        "machine_model": "Pakona PFS AG",
+        "recipe_name": "1250 g",
+        "status": "Awaiting confirmation",
+        "parameters": {},
+        "notes": "Enter the confirmed machine parameters from the HMI."
+    }
+]

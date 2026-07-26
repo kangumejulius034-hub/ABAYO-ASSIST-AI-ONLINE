@@ -1,0 +1,12 @@
+[
+    {
+        "solution_number": "TSH-000001",
+        "station": "Pouch picking station",
+        "fault": "pouches not being picked from the pouch picking station",
+        "cause": "suction cups dirty due to accumulated dust powder",
+        "inspection": "unmounted the suction cups carefully",
+        "repair": "cleaned the suction cups with a clean cloth  soaked in warm water \nblew compressed air into the suction cups",
+        "notes": "",
+        "image_paths": []
+    }
+]
