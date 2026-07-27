@@ -408,36 +408,65 @@ if machines:
         else "offline"
     )
 
-    st.markdown(
-        f"""
-        <div class="machine-card">
-            <div class="machine-name">
-                🏭 {selected_machine.get("machine_name", "Unnamed Machine")}
-            </div>
+   machine_name = selected_machine.get("machine_name", "Unnamed Machine")
+description = (
+    selected_machine.get("description")
+    or "Industrial production machine"
+)
+manufacturer = (
+    selected_machine.get("manufacturer")
+    or "Not recorded"
+)
+model = selected_machine.get("model") or "Not recorded"
+location = selected_machine.get("location") or "Not recorded"
+status = selected_machine.get("status", "Unknown")
 
-            <p>
-                {selected_machine.get("description")
-                 or "Industrial production machine"}
-            </p>
+status_color = "#039855" if status.lower() == "online" else "#d92d20"
 
-            <strong>Manufacturer:</strong>
-            {selected_machine.get("manufacturer") or "Not recorded"}
-            &nbsp;&nbsp; | &nbsp;&nbsp;
+machine_html = f"""
+<div class="machine-card">
+    <div class="machine-name">🏭 {machine_name}</div>
+    <div style="color:#667085; margin-top:6px;">
+        {description}
+    </div>
 
-            <strong>Model:</strong>
-            {selected_machine.get("model") or "Not recorded"}
-            &nbsp;&nbsp; | &nbsp;&nbsp;
-
-            <strong>Location:</strong>
-            {selected_machine.get("location") or "Not recorded"}
-
-            <br><br>
-
-            <span class="{status_class}">● {status}</span>
+    <div style="
+        display:grid;
+        grid-template-columns:repeat(3, 1fr);
+        gap:16px;
+        margin-top:18px;
+    ">
+        <div>
+            <div style="color:#98a2b3; font-size:13px;">Manufacturer</div>
+            <div style="font-weight:700;">{manufacturer}</div>
         </div>
-        """,
-        unsafe_allow_html=True,
-    )
+
+        <div>
+            <div style="color:#98a2b3; font-size:13px;">Model</div>
+            <div style="font-weight:700;">{model}</div>
+        </div>
+
+        <div>
+            <div style="color:#98a2b3; font-size:13px;">Location</div>
+            <div style="font-weight:700;">{location}</div>
+        </div>
+    </div>
+
+    <div style="
+        margin-top:18px;
+        display:inline-block;
+        padding:6px 12px;
+        border-radius:20px;
+        background:#ecfdf3;
+        color:{status_color};
+        font-weight:700;
+    ">
+        ● {status}
+    </div>
+</div>
+"""
+
+st.markdown(machine_html, unsafe_allow_html=True)
 
 else:
     st.warning("No machines have been added.")
