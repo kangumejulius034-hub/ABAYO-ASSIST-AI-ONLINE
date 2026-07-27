@@ -98,10 +98,7 @@ with st.sidebar:
     st.page_link("pages/1_fault_diagnosis.py", label="Fault Diagnosis", icon="🛠")
     st.page_link("pages/2_recipe_library.py", label="Recipe Library", icon="📖")
     st.page_link("pages/3_maintenance_history.py", label="Maintenance", icon="🔧")
-    st.page_link(
-    "pages/4_smart_toubleshooter.py",
-    label="🧠 Knowledge Base",
-)
+    st.page_link("pages/4_smart_toubleshooter.py"label="🧠 Knowledge Base",)
     st.page_link("pages/5_machine_components.py", label="Components", icon="⚙️")
 
 # Load machines
