@@ -1,13 +1,16 @@
+from html import escape
+
 import streamlit as st
+
 from supabase_engine import get_supabase_client
 
 
 # =========================================================
-# PAGE SETTINGS
+# PAGE CONFIGURATION
 # =========================================================
 
 st.set_page_config(
-    page_title="ABAYO AI Operations Assistant",
+    page_title="ABAYO",
     page_icon="🏠",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -18,170 +21,331 @@ st.set_page_config(
 # DESIGN
 # =========================================================
 
-st.markdown(
+st.html(
     """
     <style>
-    .stApp {
-        background-color: #f5f7fb;
+    :root {
+        --navy: #071426;
+        --navy-light: #10213c;
+        --blue: #2563eb;
+        --blue-light: #eff6ff;
+        --green: #039855;
+        --green-light: #ecfdf3;
+        --orange: #f79009;
+        --orange-light: #fffaeb;
+        --red: #d92d20;
+        --red-light: #fef3f2;
+        --text: #101828;
+        --muted: #667085;
+        --border: #e4e7ec;
+        --background: #f6f8fc;
     }
 
+    .stApp {
+        background: var(--background);
+    }
+
+    .block-container {
+        max-width: 1250px;
+        padding-top: 2rem;
+        padding-bottom: 3rem;
+    }
+
+    /* Sidebar */
     [data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #0d1729 0%, #111f38 100%);
+        background:
+            linear-gradient(
+                180deg,
+                var(--navy) 0%,
+                var(--navy-light) 100%
+            );
+        border-right: 1px solid rgba(255, 255, 255, 0.06);
     }
 
     [data-testid="stSidebar"] * {
         color: white;
     }
 
-    [data-testid="stSidebar"] .stButton button {
-        background-color: #175cd3;
-        color: white;
-        border: none;
+    [data-testid="stSidebar"] [data-testid="stPageLink"] a {
         border-radius: 9px;
+        padding: 0.7rem 0.8rem;
+        margin-bottom: 0.2rem;
+        text-decoration: none;
     }
 
-    .abayo-title {
-        font-size: 34px;
+    [data-testid="stSidebar"] [data-testid="stPageLink"] a:hover {
+        background: rgba(37, 99, 235, 0.22);
+    }
+
+    [data-testid="stSidebar"] .stButton button {
+        width: 100%;
+        border: 1px solid rgba(255,255,255,0.14);
+        background: rgba(255,255,255,0.05);
+        border-radius: 9px;
+        min-height: 44px;
+    }
+
+    [data-testid="stSidebar"] .stButton button:hover {
+        background: rgba(37, 99, 235, 0.28);
+        border-color: #3b82f6;
+    }
+
+    /* Hide Streamlit decoration */
+    #MainMenu {
+        visibility: hidden;
+    }
+
+    footer {
+        visibility: hidden;
+    }
+
+    header {
+        background: transparent;
+    }
+
+    /* Typography */
+    .page-heading {
+        font-size: 31px;
+        line-height: 1.2;
         font-weight: 800;
-        color: #101828;
-        margin-bottom: 3px;
+        color: var(--text);
+        margin: 0;
     }
 
-    .abayo-subtitle {
+    .page-subtitle {
+        color: var(--muted);
         font-size: 15px;
-        color: #667085;
-        margin-bottom: 22px;
+        margin-top: 6px;
+        margin-bottom: 24px;
     }
 
-    .section-title {
-        font-size: 22px;
+    .section-heading {
+        font-size: 21px;
         font-weight: 800;
-        color: #101828;
-        margin-top: 25px;
+        color: var(--text);
+        margin-top: 26px;
         margin-bottom: 12px;
     }
 
+    /* Metric cards */
     .metric-card {
         background: white;
-        border: 1px solid #e4e7ec;
-        border-radius: 15px;
-        padding: 20px;
-        min-height: 145px;
-        box-shadow: 0 3px 12px rgba(16, 24, 40, 0.05);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 19px;
+        min-height: 148px;
+        box-shadow: 0 4px 16px rgba(16, 24, 40, 0.045);
     }
 
     .metric-icon {
-        font-size: 25px;
-        margin-bottom: 8px;
+        width: 42px;
+        height: 42px;
+        border-radius: 11px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 22px;
+        margin-bottom: 12px;
+    }
+
+    .green-icon {
+        background: var(--green-light);
+    }
+
+    .red-icon {
+        background: var(--red-light);
+    }
+
+    .orange-icon {
+        background: var(--orange-light);
+    }
+
+    .blue-icon {
+        background: var(--blue-light);
     }
 
     .metric-label {
-        color: #667085;
+        color: #344054;
         font-size: 14px;
-        font-weight: 600;
+        font-weight: 700;
     }
 
     .metric-value {
-        color: #101828;
+        color: var(--text);
         font-size: 29px;
         font-weight: 800;
-        margin-top: 5px;
+        margin-top: 4px;
+    }
+
+    .metric-value.connected {
+        color: var(--green);
+        font-size: 23px;
+        margin-top: 10px;
     }
 
     .metric-note {
-        color: #98a2b3;
+        color: var(--muted);
         font-size: 13px;
-        margin-top: 3px;
+        margin-top: 4px;
     }
 
+    /* Machine card */
     .machine-card {
         background: white;
-        border: 1px solid #84adff;
+        border: 1px solid var(--border);
         border-radius: 15px;
         padding: 22px;
-        box-shadow: 0 3px 12px rgba(16, 24, 40, 0.05);
+        box-shadow: 0 4px 16px rgba(16, 24, 40, 0.045);
     }
 
-    .machine-title {
-        color: #175cd3;
+    .machine-header {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+    }
+
+    .machine-icon {
+        width: 58px;
+        height: 58px;
+        border-radius: 50%;
+        background: var(--green-light);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 29px;
+        flex-shrink: 0;
+    }
+
+    .machine-name {
+        color: var(--text);
         font-size: 23px;
         font-weight: 800;
     }
 
     .machine-description {
-        color: #667085;
-        margin-top: 5px;
-        margin-bottom: 18px;
+        color: var(--muted);
+        font-size: 14px;
+        margin-top: 4px;
     }
 
     .machine-details {
         display: grid;
         grid-template-columns: repeat(3, 1fr);
-        gap: 18px;
+        margin-top: 22px;
+        border-top: 1px solid #f0f2f5;
+        padding-top: 18px;
+    }
+
+    .machine-detail {
+        padding-right: 20px;
+    }
+
+    .machine-detail + .machine-detail {
+        border-left: 1px solid #f0f2f5;
+        padding-left: 20px;
     }
 
     .detail-label {
-        color: #98a2b3;
+        color: var(--muted);
         font-size: 12px;
-        margin-bottom: 2px;
+        margin-bottom: 5px;
     }
 
     .detail-value {
-        color: #344054;
+        color: var(--text);
         font-size: 15px;
+        font-weight: 750;
+    }
+
+    .machine-status {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        border-radius: 20px;
+        padding: 7px 13px;
+        margin-top: 20px;
+        font-size: 14px;
         font-weight: 700;
     }
 
-    .status-online {
-        display: inline-block;
-        margin-top: 18px;
-        padding: 6px 12px;
-        border-radius: 20px;
-        background: #ecfdf3;
-        color: #027a48;
-        font-weight: 700;
+    .machine-status.online {
+        background: var(--green-light);
+        color: var(--green);
     }
 
-    .status-offline {
-        display: inline-block;
-        margin-top: 18px;
-        padding: 6px 12px;
-        border-radius: 20px;
-        background: #fef3f2;
-        color: #b42318;
-        font-weight: 700;
+    .machine-status.offline {
+        background: var(--red-light);
+        color: var(--red);
     }
 
-    .status-maintenance {
-        display: inline-block;
-        margin-top: 18px;
-        padding: 6px 12px;
-        border-radius: 20px;
-        background: #fffaeb;
+    .machine-status.maintenance {
+        background: var(--orange-light);
         color: #b54708;
-        font-weight: 700;
     }
 
-    .system-footer {
-        text-align: center;
-        color: #98a2b3;
-        margin-top: 35px;
+    /* Quick action cards */
+    .action-card {
+        background: white;
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 18px;
+        min-height: 135px;
+        box-shadow: 0 3px 12px rgba(16, 24, 40, 0.035);
+        margin-bottom: 7px;
+    }
+
+    .action-icon {
+        font-size: 24px;
+        margin-bottom: 10px;
+    }
+
+    .action-title {
+        color: var(--text);
+        font-size: 15px;
+        font-weight: 800;
+    }
+
+    .action-note {
+        color: var(--muted);
         font-size: 13px;
+        margin-top: 5px;
+        line-height: 1.45;
+    }
+
+    /* Footer */
+    .app-footer {
+        color: #98a2b3;
+        text-align: center;
+        margin-top: 35px;
+        font-size: 12px;
     }
 
     @media (max-width: 800px) {
         .machine-details {
             grid-template-columns: 1fr;
         }
+
+        .machine-detail {
+            padding: 10px 0;
+        }
+
+        .machine-detail + .machine-detail {
+            border-left: none;
+            border-top: 1px solid #f0f2f5;
+            padding-left: 0;
+        }
+
+        .page-heading {
+            font-size: 25px;
+        }
     }
     </style>
-    """,
-    unsafe_allow_html=True,
+    """
 )
 
 
 # =========================================================
-# SUPABASE CONNECTION
+# DATABASE
 # =========================================================
 
 try:
@@ -192,20 +356,13 @@ except Exception:
     database_connected = False
 
 
-def load_table(table_name, columns="*"):
-    """Safely load records from Supabase."""
-
+def load_table(table_name: str) -> list:
     if not database_connected:
         return []
 
     try:
-        response = (
-            supabase.table(table_name)
-            .select(columns)
-            .execute()
-        )
-        return response.data or []
-
+        result = supabase.table(table_name).select("*").execute()
+        return result.data or []
     except Exception:
         return []
 
@@ -220,116 +377,105 @@ maintenance_records = load_table("maintenance_history")
 # =========================================================
 
 if "selected_machine_id" not in st.session_state:
-    if machines:
-        st.session_state.selected_machine_id = machines[0].get("id")
-    else:
-        st.session_state.selected_machine_id = None
-
+    st.session_state.selected_machine_id = (
+        machines[0].get("id") if machines else None
+    )
 
 if "show_add_machine" not in st.session_state:
     st.session_state.show_add_machine = False
 
 
 # =========================================================
-# SIDEBAR
+# CUSTOM SIDEBAR
 # =========================================================
 
 with st.sidebar:
-
     st.markdown("## 🔷 ABAYO")
     st.caption("AI Operations Assistant")
 
     st.markdown("---")
 
+    # This replaces the random “app” wording.
     st.page_link(
         "app.py",
         label="Home",
         icon="🏠",
+        use_container_width=True,
     )
 
-    st.markdown("### Machines")
+    st.markdown("#### MACHINES")
 
-    if st.button(
-        "＋ Add Machine",
-        use_container_width=True,
-    ):
+    if st.button("＋  Add Machine", use_container_width=True):
         st.session_state.show_add_machine = True
 
     st.page_link(
         "pages/1_fault_diagnosis.py",
         label="Fault Diagnosis",
-        icon="🛠️",
+        icon="🔧",
+        use_container_width=True,
     )
 
     st.page_link(
         "pages/2_recipe_library.py",
         label="Recipe Library",
         icon="📖",
+        use_container_width=True,
     )
 
     st.page_link(
         "pages/3_maintenance_history.py",
         label="Maintenance",
-        icon="🔧",
+        icon="🛠️",
+        use_container_width=True,
     )
 
-    # The real filename currently uses "toubleshooter"
     st.page_link(
         "pages/4_smart_toubleshooter.py",
         label="Knowledge Base",
         icon="🧠",
+        use_container_width=True,
     )
 
     st.page_link(
         "pages/5_machine_components.py",
         label="Machine Components",
         icon="⚙️",
-    )
-
-    st.markdown("---")
-
-    st.markdown("### 🤖 ABAYO Assistant")
-    st.caption(
-        "Machine knowledge, guided fault diagnosis and operational support."
-    )
-
-    st.button(
-        "AI Assistant — Coming Soon",
-        disabled=True,
         use_container_width=True,
     )
 
     st.markdown("---")
+    st.markdown("#### ABAYO ASSISTANT")
+    st.markdown("🤖 **AI Assistant**")
+    st.caption("Coming soon")
+
+    st.markdown("---")
 
     if database_connected:
-        st.success("Cloud system connected")
+        st.success("● Cloud system connected")
     else:
-        st.error("Cloud system disconnected")
+        st.error("● Cloud system disconnected")
 
     st.caption("System Version 0.5")
 
 
 # =========================================================
-# PAGE HEADER
+# HEADER
 # =========================================================
 
-st.markdown(
-    '<div class="abayo-title">Welcome back, Kangume Julius 👋</div>',
-    unsafe_allow_html=True,
-)
-
-st.markdown(
+st.html(
     """
-    <div class="abayo-subtitle">
+    <div class="page-heading">
+        Welcome back, Kangume Julius 👋
+    </div>
+    <div class="page-subtitle">
         Monitor machines, diagnose faults and preserve operational knowledge.
     </div>
-    """,
-    unsafe_allow_html=True,
+    """
 )
 
 
 # =========================================================
-# METRIC CARDS
+# DASHBOARD METRICS
 # =========================================================
 
 online_count = sum(
@@ -344,70 +490,56 @@ maintenance_count = len(maintenance_records)
 
 metric_1, metric_2, metric_3, metric_4 = st.columns(4)
 
-
 with metric_1:
-
-    st.markdown(
+    st.html(
         f"""
-<div class="metric-card">
-    <div class="metric-icon">📶</div>
-    <div class="metric-label">Machines Online</div>
-    <div class="metric-value">{online_count}</div>
-    <div class="metric-note">of {total_machines} registered machines</div>
-</div>
-        """,
-        unsafe_allow_html=True,
+        <div class="metric-card">
+            <div class="metric-icon green-icon">📡</div>
+            <div class="metric-label">Machines Online</div>
+            <div class="metric-value">{online_count}</div>
+            <div class="metric-note">
+                of {total_machines} registered machines
+            </div>
+        </div>
+        """
     )
-
 
 with metric_2:
-
-    st.markdown(
+    st.html(
         f"""
-<div class="metric-card">
-    <div class="metric-icon">⚠️</div>
-    <div class="metric-label">Fault Records</div>
-    <div class="metric-value">{fault_count}</div>
-    <div class="metric-note">Saved fault knowledge</div>
-</div>
-        """,
-        unsafe_allow_html=True,
+        <div class="metric-card">
+            <div class="metric-icon red-icon">⚠️</div>
+            <div class="metric-label">Fault Records</div>
+            <div class="metric-value">{fault_count}</div>
+            <div class="metric-note">Saved fault knowledge</div>
+        </div>
+        """
     )
-
 
 with metric_3:
-
-    st.markdown(
+    st.html(
         f"""
-<div class="metric-card">
-    <div class="metric-icon">🗓️</div>
-    <div class="metric-label">Maintenance Records</div>
-    <div class="metric-value">{maintenance_count}</div>
-    <div class="metric-note">Recorded service history</div>
-</div>
-        """,
-        unsafe_allow_html=True,
+        <div class="metric-card">
+            <div class="metric-icon orange-icon">🗓️</div>
+            <div class="metric-label">Maintenance Records</div>
+            <div class="metric-value">{maintenance_count}</div>
+            <div class="metric-note">Recorded service history</div>
+        </div>
+        """
     )
-
 
 with metric_4:
+    cloud_status = "Connected" if database_connected else "Offline"
 
-    connection_status = (
-        "Connected"
-        if database_connected
-        else "Offline"
-    )
-
-    st.markdown(
+    st.html(
         f"""
-<div class="metric-card">
-    <div class="metric-icon">☁️</div>
-    <div class="metric-label">Cloud Status</div>
-    <div class="metric-value">{connection_status}</div>
-    <div class="metric-note">Supabase database</div>
-</div>
-        """,
-        unsafe_allow_html=True,
+        <div class="metric-card">
+            <div class="metric-icon blue-icon">☁️</div>
+            <div class="metric-label">Cloud Status</div>
+            <div class="metric-value connected">{cloud_status}</div>
+            <div class="metric-note">Supabase database</div>
+        </div>
+        """
     )
 
 
@@ -415,55 +547,43 @@ with metric_4:
 # MACHINE WORKSPACE
 # =========================================================
 
-st.markdown(
-    '<div class="section-title">Machine Workspace</div>',
-    unsafe_allow_html=True,
-)
-
+st.html('<div class="section-heading">Machine Workspace</div>')
 
 if machines:
-
-    machine_options = {
-        machine.get(
-            "machine_name",
-            f"Machine {machine.get('id')}",
-        ): machine.get("id")
+    machine_choices = {
+        machine.get("machine_name", f"Machine {machine.get('id')}"):
+        machine.get("id")
         for machine in machines
     }
 
-    selected_machine_name = next(
+    current_machine_name = next(
         (
             name
-            for name, machine_id in machine_options.items()
+            for name, machine_id in machine_choices.items()
             if machine_id == st.session_state.selected_machine_id
         ),
-        list(machine_options.keys())[0],
+        list(machine_choices.keys())[0],
     )
 
     switch_column, add_column = st.columns([4, 1])
 
     with switch_column:
-
-        selected_name = st.selectbox(
+        chosen_name = st.selectbox(
             "Select Machine",
-            options=list(machine_options.keys()),
-            index=list(machine_options.keys()).index(
-                selected_machine_name
+            options=list(machine_choices.keys()),
+            index=list(machine_choices.keys()).index(
+                current_machine_name
             ),
+            label_visibility="collapsed",
         )
 
-        selected_id = machine_options[selected_name]
+        chosen_id = machine_choices[chosen_name]
 
-        if selected_id != st.session_state.selected_machine_id:
-            st.session_state.selected_machine_id = selected_id
+        if chosen_id != st.session_state.selected_machine_id:
+            st.session_state.selected_machine_id = chosen_id
             st.rerun()
 
-
     with add_column:
-
-        st.write("")
-        st.write("")
-
         if st.button(
             "＋ Add Machine",
             key="workspace_add_machine",
@@ -471,7 +591,6 @@ if machines:
         ):
             st.session_state.show_add_machine = True
             st.rerun()
-
 
     selected_machine = next(
         (
@@ -483,91 +602,86 @@ if machines:
         machines[0],
     )
 
-    machine_name = selected_machine.get(
-        "machine_name",
-        "Unnamed Machine",
+    machine_name = escape(
+        str(selected_machine.get("machine_name") or "Unnamed Machine")
     )
 
-    description = (
-        selected_machine.get("description")
-        or "Industrial production machine"
+    description = escape(
+        str(
+            selected_machine.get("description")
+            or "Industrial production machine"
+        )
     )
 
-    manufacturer = (
-        selected_machine.get("manufacturer")
-        or "Not recorded"
+    manufacturer = escape(
+        str(
+            selected_machine.get("manufacturer")
+            or "Not recorded"
+        )
     )
 
-    model = (
-        selected_machine.get("model")
-        or "Not recorded"
+    model = escape(
+        str(selected_machine.get("model") or "Not recorded")
     )
 
-    location = (
-        selected_machine.get("location")
-        or "Not recorded"
+    location = escape(
+        str(selected_machine.get("location") or "Not recorded")
     )
 
-    status = (
-        selected_machine.get("status")
-        or "Unknown"
+    status = escape(
+        str(selected_machine.get("status") or "Unknown")
     )
 
-    status_lower = str(status).lower()
+    status_lower = status.lower()
 
     if status_lower == "online":
-        status_class = "status-online"
-
+        status_class = "online"
     elif status_lower == "maintenance":
-        status_class = "status-maintenance"
-
+        status_class = "maintenance"
     else:
-        status_class = "status-offline"
+        status_class = "offline"
 
+    # st.html prevents the HTML tags from appearing as random words.
+    st.html(
+        f"""
+        <div class="machine-card">
+            <div class="machine-header">
+                <div class="machine-icon">🏭</div>
 
-    machine_html = f"""
-<div class="machine-card">
-    <div class="machine-title">🏭 {machine_name}</div>
+                <div>
+                    <div class="machine-name">{machine_name}</div>
+                    <div class="machine-description">
+                        {description}
+                    </div>
+                </div>
+            </div>
 
-    <div class="machine-description">
-        {description}
-    </div>
+            <div class="machine-details">
+                <div class="machine-detail">
+                    <div class="detail-label">Manufacturer</div>
+                    <div class="detail-value">{manufacturer}</div>
+                </div>
 
-    <div class="machine-details">
-        <div>
-            <div class="detail-label">Manufacturer</div>
-            <div class="detail-value">{manufacturer}</div>
+                <div class="machine-detail">
+                    <div class="detail-label">Model</div>
+                    <div class="detail-value">{model}</div>
+                </div>
+
+                <div class="machine-detail">
+                    <div class="detail-label">Location</div>
+                    <div class="detail-value">{location}</div>
+                </div>
+            </div>
+
+            <div class="machine-status {status_class}">
+                ● {status}
+            </div>
         </div>
-
-        <div>
-            <div class="detail-label">Model</div>
-            <div class="detail-value">{model}</div>
-        </div>
-
-        <div>
-            <div class="detail-label">Location</div>
-            <div class="detail-value">{location}</div>
-        </div>
-    </div>
-
-    <div class="{status_class}">
-        ● {status}
-    </div>
-</div>
-"""
-
-    st.markdown(
-        machine_html,
-        unsafe_allow_html=True,
+        """
     )
-
 
 else:
-
-    st.info(
-        "No machine has been registered. "
-        "Use Add Machine to create the first machine."
-    )
+    st.info("No machine registered. Select Add Machine to begin.")
 
 
 # =========================================================
@@ -575,102 +689,54 @@ else:
 # =========================================================
 
 if st.session_state.show_add_machine:
-
-    st.markdown(
-        '<div class="section-title">Add New Machine</div>',
-        unsafe_allow_html=True,
-    )
+    st.html('<div class="section-heading">Add New Machine</div>')
 
     with st.form("add_machine_form"):
+        left, right = st.columns(2)
 
-        left_column, right_column = st.columns(2)
+        with left:
+            new_machine_name = st.text_input("Machine Name *")
+            new_manufacturer = st.text_input("Manufacturer")
+            new_model = st.text_input("Model")
 
-        with left_column:
-
-            new_machine_name = st.text_input(
-                "Machine Name *"
-            )
-
-            new_manufacturer = st.text_input(
-                "Manufacturer"
-            )
-
-            new_model = st.text_input(
-                "Model"
-            )
-
-
-        with right_column:
-
-            new_location = st.text_input(
-                "Location"
-            )
-
+        with right:
+            new_location = st.text_input("Location")
             new_status = st.selectbox(
                 "Status",
-                [
-                    "Online",
-                    "Offline",
-                    "Maintenance",
-                ],
+                ["Online", "Offline", "Maintenance"],
             )
-
-            new_description = st.text_area(
-                "Description"
-            )
-
+            new_description = st.text_area("Description")
 
         save_machine = st.form_submit_button(
             "Save Machine",
             use_container_width=True,
         )
 
-
         if save_machine:
-
             if not new_machine_name.strip():
-
-                st.error(
-                    "Machine name is required."
-                )
+                st.error("Machine name is required.")
 
             elif not database_connected:
-
-                st.error(
-                    "Supabase database is not connected."
-                )
+                st.error("Cloud database is disconnected.")
 
             else:
-
                 try:
-
-                    machine_result = (
+                    response = (
                         supabase.table("machines")
                         .insert(
                             {
-                                "machine_name":
-                                    new_machine_name.strip(),
-
-                                "manufacturer":
-                                    new_manufacturer.strip(),
-
-                                "model":
-                                    new_model.strip(),
-
-                                "location":
-                                    new_location.strip(),
-
-                                "description":
-                                    new_description.strip(),
-
-                                "status":
-                                    new_status,
+                                "machine_name": new_machine_name.strip(),
+                                "manufacturer": new_manufacturer.strip(),
+                                "model": new_model.strip(),
+                                "location": new_location.strip(),
+                                "description": new_description.strip(),
+                                "status": new_status,
                             }
                         )
                         .execute()
                     )
 
-                    new_machine = machine_result.data[0]
+                    new_machine = response.data[0]
 
                     default_modules = [
                         "Machine Overview",
@@ -679,98 +745,119 @@ if st.session_state.show_add_machine:
                         "Maintenance History",
                         "Smart Troubleshooter",
                         "Machine Components",
-                        "Documents",
-                        "Reports and Analytics",
                     ]
 
                     module_rows = [
                         {
-                            "machine_id":
-                                new_machine["id"],
-
-                            "module_name":
-                                module_name,
-
-                            "enabled":
-                                True,
+                            "machine_id": new_machine["id"],
+                            "module_name": module_name,
+                            "enabled": True,
                         }
                         for module_name in default_modules
                     ]
 
                     try:
-
-                        supabase.table(
-                            "machine_modules"
-                        ).insert(
-                            module_rows
-                        ).execute()
-
+                        (
+                            supabase.table("machine_modules")
+                            .insert(module_rows)
+                            .execute()
+                        )
                     except Exception:
                         pass
 
                     st.session_state.selected_machine_id = (
                         new_machine["id"]
                     )
-
                     st.session_state.show_add_machine = False
 
-                    st.success(
-                        "Machine added successfully."
-                    )
-
+                    st.success("Machine added successfully.")
                     st.rerun()
 
                 except Exception as error:
-
-                    st.error(
-                        f"Machine could not be saved: {error}"
-                    )
+                    st.error(f"Unable to save machine: {error}")
 
 
 # =========================================================
 # QUICK ACTIONS
 # =========================================================
 
-st.markdown(
-    '<div class="section-title">Quick Actions</div>',
-    unsafe_allow_html=True,
-)
+st.html('<div class="section-heading">Quick Actions</div>')
 
 action_1, action_2, action_3, action_4 = st.columns(4)
 
-
 with action_1:
+    st.html(
+        """
+        <div class="action-card">
+            <div class="action-icon">🔧</div>
+            <div class="action-title">Diagnose a Fault</div>
+            <div class="action-note">
+                Find possible causes and recommended checks.
+            </div>
+        </div>
+        """
+    )
 
     st.page_link(
         "pages/1_fault_diagnosis.py",
-        label="🛠️ Diagnose a Fault",
+        label="Open Fault Diagnosis",
         use_container_width=True,
     )
 
-
 with action_2:
+    st.html(
+        """
+        <div class="action-card">
+            <div class="action-icon">📖</div>
+            <div class="action-title">Browse Recipes</div>
+            <div class="action-note">
+                Search and review machine recipe parameters.
+            </div>
+        </div>
+        """
+    )
 
     st.page_link(
         "pages/2_recipe_library.py",
-        label="📖 Browse Recipes",
+        label="Open Recipe Library",
         use_container_width=True,
     )
 
-
 with action_3:
+    st.html(
+        """
+        <div class="action-card">
+            <div class="action-icon">📋</div>
+            <div class="action-title">Maintenance History</div>
+            <div class="action-note">
+                View servicing and maintenance records.
+            </div>
+        </div>
+        """
+    )
 
     st.page_link(
         "pages/3_maintenance_history.py",
-        label="🔧 Maintenance History",
+        label="Open Maintenance",
         use_container_width=True,
     )
 
-
 with action_4:
+    st.html(
+        """
+        <div class="action-card">
+            <div class="action-icon">⚙️</div>
+            <div class="action-title">Machine Components</div>
+            <div class="action-note">
+                Explore machine parts and components.
+            </div>
+        </div>
+        """
+    )
 
     st.page_link(
         "pages/5_machine_components.py",
-        label="⚙️ Machine Components",
+        label="Open Components",
         use_container_width=True,
     )
 
@@ -779,78 +866,40 @@ with action_4:
 # RECENT ACTIVITY
 # =========================================================
 
-st.markdown(
-    '<div class="section-title">Recent Activity</div>',
-    unsafe_allow_html=True,
-)
+st.html('<div class="section-heading">Recent Activity</div>')
 
 activities = []
 
 if database_connected:
-
     try:
-
         activities = (
             supabase.table("machine_activity")
-            .select(
-                "*, machines(machine_name)"
-            )
-            .order(
-                "created_at",
-                desc=True,
-            )
+            .select("*, machines(machine_name)")
+            .order("created_at", desc=True)
             .limit(10)
             .execute()
             .data
             or []
         )
-
     except Exception:
         activities = []
 
-
 if activities:
-
     activity_rows = []
 
     for activity in activities:
-
-        machine_information = (
-            activity.get("machines")
-            or {}
-        )
+        machine_details = activity.get("machines") or {}
 
         activity_rows.append(
             {
-                "Machine":
-                    machine_information.get(
-                        "machine_name",
-                        "Unknown Machine",
-                    ),
-
-                "Activity":
-                    activity.get(
-                        "description",
-                        "",
-                    ),
-
-                "Type":
-                    activity.get(
-                        "activity_type",
-                        "",
-                    ),
-
-                "Status":
-                    activity.get(
-                        "status",
-                        "",
-                    ),
-
-                "Time":
-                    activity.get(
-                        "created_at",
-                        "",
-                    ),
+                "Machine": machine_details.get(
+                    "machine_name",
+                    "Unknown Machine",
+                ),
+                "Activity": activity.get("description", ""),
+                "Type": activity.get("activity_type", ""),
+                "Status": activity.get("status", ""),
+                "Time": activity.get("created_at", ""),
             }
         )
 
@@ -860,23 +909,18 @@ if activities:
         hide_index=True,
     )
 
-
 else:
-
-    st.info(
-        "Recent operational activities will appear here."
-    )
+    st.info("Recent operational activities will appear here.")
 
 
 # =========================================================
 # FOOTER
 # =========================================================
 
-st.markdown(
+st.html(
     """
-    <div class="system-footer">
+    <div class="app-footer">
         ABAYO AI Operations Assistant • System Version 0.5
     </div>
-    """,
-    unsafe_allow_html=True,
+    """
 )
