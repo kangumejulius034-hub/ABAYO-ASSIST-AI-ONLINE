@@ -303,3 +303,46 @@ with q3:
         label="🔧 Maintenance History",
         use_container_width=True,
     )
+
+st.markdown(
+    '<div class="section-title">Recent Activity</div>',
+    unsafe_allow_html=True,
+)
+
+activity_response = (
+    supabase.table("machine_activity")
+    .select("*, machines(machine_name)")
+    .order("created_at", desc=True)
+    .limit(10)
+    .execute()
+)
+
+activities = activity_response.data or []
+
+if activities:
+    activity_rows = []
+
+    for activity in activities:
+        machine_data = activity.get("machines") or {}
+
+        activity_rows.append(
+            {
+                "Machine": machine_data.get(
+                    "machine_name",
+                    "Unknown Machine",
+                ),
+                "Activity": activity.get("description", ""),
+                "Type": activity.get("activity_type", ""),
+                "Status": activity.get("status", ""),
+                "Time": activity.get("created_at", ""),
+            }
+        )
+
+    st.dataframe(
+        activity_rows,
+        use_container_width=True,
+        hide_index=True,
+    )
+
+else:
+    st.info("No recent activity yet.")
