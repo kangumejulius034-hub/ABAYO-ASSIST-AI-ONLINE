@@ -1080,24 +1080,19 @@ with action_4:
 
 
 # =========================================================
-# DELETE RECORDS
+# OPEN OR DELETE RECORDS
 # =========================================================
 
 st.html('<div class="section-heading">Manage Saved Records</div>')
 
-with st.expander("🗑️ Delete recipes, faults, components and other records"):
-    st.warning(
-        "Records deleted here are removed permanently. "
-        "Machines continue to use the separate 30-day Recycle Bin."
-    )
-
+with st.expander("⋮ Open or delete a saved record"):
     if not database_connected:
-        st.error("Connect ABAYO to Supabase before deleting records.")
+        st.error("Connect ABAYO to Supabase to manage saved records.")
     else:
         record_type = st.selectbox(
-            "Choose what you want to delete",
+            "Record type",
             list(RECORD_TABLES),
-            key="delete_record_type",
+            key="manage_record_type",
         )
 
         selected_table = RECORD_TABLES[record_type]
@@ -1124,49 +1119,73 @@ with st.expander("🗑️ Delete recipes, faults, components and other records")
                 }
 
                 selected_record_id = st.selectbox(
-                    f"Select one of {len(selectable_records)} "
-                    f"{record_type.lower()}",
+                    f"Select {record_type.lower()}",
                     list(record_by_id),
                     format_func=lambda item_id: (
                         record_name(record_by_id[item_id])
                     ),
-                    key=f"delete_selector_{selected_table}",
+                    key=f"manage_selector_{selected_table}",
                 )
 
                 selected_record = record_by_id[selected_record_id]
                 selected_record_name = record_name(selected_record)
 
-                st.write(f"Selected: **{selected_record_name}**")
-
-                confirm_delete = st.checkbox(
-                    f"I understand that {selected_record_name} "
-                    "will be permanently deleted.",
-                    key=f"confirm_delete_{selected_table}_"
+                action = st.radio(
+                    "Options",
+                    ("1. Open", "2. Delete"),
+                    horizontal=True,
+                    key=f"record_action_{selected_table}_"
                     f"{selected_record_id}",
                 )
 
-                if st.button(
-                    f"🗑️ Permanently delete {selected_record_name}",
-                    type="primary",
-                    use_container_width=True,
-                    disabled=not confirm_delete,
-                    key=f"delete_{selected_table}_{selected_record_id}",
-                ):
-                    try:
-                        delete_record(
-                            selected_table,
-                            selected_record["id"],
-                        )
-                        st.success(
-                            f"{selected_record_name} was deleted "
-                            "successfully."
-                        )
-                        st.rerun()
-                    except Exception as error:
-                        st.error(
-                            f"Unable to delete {selected_record_name}: "
-                            f"{error}"
-                        )
+                if action == "1. Open":
+                    st.subheader(selected_record_name)
+
+                    visible_record = {
+                        str(key).replace("_", " ").title(): value
+                        for key, value in selected_record.items()
+                        if key not in {"id", "machine_id"}
+                    }
+
+                    if visible_record:
+                        st.json(visible_record, expanded=True)
+                    else:
+                        st.info("This record has no additional details.")
+
+                else:
+                    st.warning(
+                        f"Delete **{selected_record_name}** permanently?"
+                    )
+
+                    confirm_delete = st.checkbox(
+                        "Yes, I understand this cannot be undone.",
+                        key=f"confirm_delete_{selected_table}_"
+                        f"{selected_record_id}",
+                    )
+
+                    if st.button(
+                        f"🗑️ Delete {selected_record_name}",
+                        type="primary",
+                        use_container_width=True,
+                        disabled=not confirm_delete,
+                        key=f"delete_{selected_table}_"
+                        f"{selected_record_id}",
+                    ):
+                        try:
+                            delete_record(
+                                selected_table,
+                                selected_record["id"],
+                            )
+                            st.success(
+                                f"{selected_record_name} was deleted "
+                                "successfully."
+                            )
+                            st.rerun()
+                        except Exception as error:
+                            st.error(
+                                f"Unable to delete "
+                                f"{selected_record_name}: {error}"
+                            )
 
 
 # =========================================================
