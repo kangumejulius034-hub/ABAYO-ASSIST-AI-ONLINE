@@ -1,7 +1,17 @@
+from __future__ import annotations
+
+import hmac
 from html import escape
 
 import streamlit as st
 
+from recycle_bin_engine import (
+    load_active_machines,
+    load_deleted_machines,
+    purge_expired_machines,
+    recycle_bin_is_ready,
+    soft_delete_machine,
+)
 from supabase_engine import get_supabase_client
 
 
@@ -11,7 +21,7 @@ from supabase_engine import get_supabase_client
 
 st.set_page_config(
     page_title="ABAYO",
-    page_icon="🏠",
+    page_icon="ðŸ ",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -367,7 +377,32 @@ def load_table(table_name: str) -> list:
         return []
 
 
-machines = load_table("machines")
+recycle_bin_ready = (
+    database_connected
+    and recycle_bin_is_ready(supabase)
+)
+
+if recycle_bin_ready:
+    try:
+        purge_expired_machines(supabase)
+    except Exception:
+        # Linked records may intentionally prevent automatic permanent removal.
+        pass
+
+    try:
+        machines = load_active_machines(supabase)
+    except Exception:
+        machines = []
+
+    try:
+        deleted_machines = load_deleted_machines(supabase)
+    except Exception:
+        deleted_machines = []
+else:
+    # Backward-compatible fallback until the one-time SQL migration is run.
+    machines = load_table("machines")
+    deleted_machines = []
+
 faults = load_table("faults")
 maintenance_records = load_table("maintenance_history")
 
@@ -376,7 +411,15 @@ maintenance_records = load_table("maintenance_history")
 # SESSION STATE
 # =========================================================
 
-if "selected_machine_id" not in st.session_state:
+active_machine_ids = {
+    machine.get("id")
+    for machine in machines
+}
+
+if (
+    "selected_machine_id" not in st.session_state
+    or st.session_state.selected_machine_id not in active_machine_ids
+):
     st.session_state.selected_machine_id = (
         machines[0].get("id") if machines else None
     )
@@ -384,78 +427,101 @@ if "selected_machine_id" not in st.session_state:
 if "show_add_machine" not in st.session_state:
     st.session_state.show_add_machine = False
 
+if "pending_machine_delete" not in st.session_state:
+    st.session_state.pending_machine_delete = None
+
+if "admin_actions_unlocked" not in st.session_state:
+    st.session_state.admin_actions_unlocked = False
+
+
+def configured_admin_pin() -> str:
+    try:
+        return str(st.secrets.get("ABAYO_ADMIN_PIN", "")).strip()
+    except Exception:
+        return ""
+
+
+def admin_is_unlocked() -> bool:
+    return bool(st.session_state.admin_actions_unlocked)
+
 
 # =========================================================
 # CUSTOM SIDEBAR
 # =========================================================
 
 with st.sidebar:
-    st.markdown("## 🔷 ABAYO")
+    st.markdown("## ðŸ”· ABAYO")
     st.caption("AI Operations Assistant")
 
     st.markdown("---")
 
-    # This replaces the random “app” wording.
     st.page_link(
         "app.py",
         label="Home",
-        icon="🏠",
+        icon="ðŸ ",
         use_container_width=True,
     )
 
     st.markdown("#### MACHINES")
 
-    if st.button("＋  Add Machine", use_container_width=True):
+    if st.button("ï¼‹  Add Machine", use_container_width=True):
         st.session_state.show_add_machine = True
 
     st.page_link(
         "pages/1_fault_diagnosis.py",
         label="Fault Diagnosis",
-        icon="🔧",
+        icon="ðŸ”§",
         use_container_width=True,
     )
 
     st.page_link(
         "pages/2_recipe_library.py",
         label="Recipe Library",
-        icon="📖",
+        icon="ðŸ“–",
         use_container_width=True,
     )
 
     st.page_link(
         "pages/3_maintenance_history.py",
         label="Maintenance",
-        icon="🛠️",
+        icon="ðŸ› ï¸",
         use_container_width=True,
     )
 
     st.page_link(
         "pages/4_smart_toubleshooter.py",
         label="Knowledge Base",
-        icon="🧠",
+        icon="ðŸ§ ",
         use_container_width=True,
     )
 
     st.page_link(
         "pages/5_machine_components.py",
         label="Machine Components",
-        icon="⚙️",
+        icon="âš™ï¸",
+        use_container_width=True,
+    )
+
+    st.page_link(
+        "pages/6_recycle_bin.py",
+        label=f"Recycle Bin ({len(deleted_machines)})",
+        icon="ðŸ—‘ï¸",
         use_container_width=True,
     )
 
     st.markdown("---")
     st.markdown("#### ABAYO ASSISTANT")
-    st.markdown("🤖 **AI Assistant**")
+    st.markdown("ðŸ¤– **AI Assistant**")
     st.caption("Coming soon")
 
     st.markdown("---")
 
     if database_connected:
-        st.success("● Cloud system connected")
+        st.success("â— Cloud system connected")
     else:
-        st.error("● Cloud system disconnected")
+        st.error("â— Cloud system disconnected")
 
-    st.caption("System Version 0.5")
+    st.caption("System Version 0.6")
 
 
 # =========================================================
@@ -465,13 +531,22 @@ with st.sidebar:
 st.html(
     """
     <div class="page-heading">
-        Welcome back, Kangume Julius 👋
+        Welcome back, Kangume Julius ðŸ‘‹
     </div>
     <div class="page-subtitle">
         Monitor machines, diagnose faults and preserve operational knowledge.
     </div>
     """
 )
+
+if "dashboard_flash_message" in st.session_state:
+    st.success(st.session_state.pop("dashboard_flash_message"))
+
+if database_connected and not recycle_bin_ready:
+    st.warning(
+        "The Recycle Bin is visible but not active yet. Run "
+        "supabase_recycle_bin_setup.sql once in Supabase."
+    )
 
 
 # =========================================================
@@ -494,7 +569,7 @@ with metric_1:
     st.html(
         f"""
         <div class="metric-card">
-            <div class="metric-icon green-icon">📡</div>
+            <div class="metric-icon green-icon">ðŸ“¡</div>
             <div class="metric-label">Machines Online</div>
             <div class="metric-value">{online_count}</div>
             <div class="metric-note">
@@ -508,7 +583,7 @@ with metric_2:
     st.html(
         f"""
         <div class="metric-card">
-            <div class="metric-icon red-icon">⚠️</div>
+            <div class="metric-icon red-icon">âš ï¸</div>
             <div class="metric-label">Fault Records</div>
             <div class="metric-value">{fault_count}</div>
             <div class="metric-note">Saved fault knowledge</div>
@@ -520,7 +595,7 @@ with metric_3:
     st.html(
         f"""
         <div class="metric-card">
-            <div class="metric-icon orange-icon">🗓️</div>
+            <div class="metric-icon orange-icon">ðŸ—“ï¸</div>
             <div class="metric-label">Maintenance Records</div>
             <div class="metric-value">{maintenance_count}</div>
             <div class="metric-note">Recorded service history</div>
@@ -534,7 +609,7 @@ with metric_4:
     st.html(
         f"""
         <div class="metric-card">
-            <div class="metric-icon blue-icon">☁️</div>
+            <div class="metric-icon blue-icon">â˜ï¸</div>
             <div class="metric-label">Cloud Status</div>
             <div class="metric-value connected">{cloud_status}</div>
             <div class="metric-note">Supabase database</div>
@@ -581,11 +656,12 @@ if machines:
 
         if chosen_id != st.session_state.selected_machine_id:
             st.session_state.selected_machine_id = chosen_id
+            st.session_state.pending_machine_delete = None
             st.rerun()
 
     with add_column:
         if st.button(
-            "＋ Add Machine",
+            "ï¼‹ Add Machine",
             key="workspace_add_machine",
             use_container_width=True,
         ):
@@ -602,9 +678,13 @@ if machines:
         machines[0],
     )
 
-    machine_name = escape(
-        str(selected_machine.get("machine_name") or "Unnamed Machine")
+    machine_id = selected_machine.get("id")
+
+    machine_name_raw = str(
+        selected_machine.get("machine_name")
+        or "Unnamed Machine"
     )
+    machine_name = escape(machine_name_raw)
 
     description = escape(
         str(
@@ -641,12 +721,11 @@ if machines:
     else:
         status_class = "offline"
 
-    # st.html prevents the HTML tags from appearing as random words.
     st.html(
         f"""
         <div class="machine-card">
             <div class="machine-header">
-                <div class="machine-icon">🏭</div>
+                <div class="machine-icon">ðŸ­</div>
 
                 <div>
                     <div class="machine-name">{machine_name}</div>
@@ -674,11 +753,123 @@ if machines:
             </div>
 
             <div class="machine-status {status_class}">
-                ● {status}
+                â— {status}
             </div>
         </div>
         """
     )
+
+    delete_spacer, delete_column = st.columns([5, 1])
+
+    with delete_column:
+        if st.button(
+            "ðŸ—‘ï¸ Delete",
+            key=f"open_delete_machine_{machine_id}",
+            help="Move this machine to the Recycle Bin",
+            use_container_width=True,
+        ):
+            st.session_state.pending_machine_delete = machine_id
+
+    if st.session_state.pending_machine_delete == machine_id:
+        st.warning(
+            f"Move {machine_name_raw} to the Recycle Bin? "
+            "It will remain recoverable for 30 days."
+        )
+
+        expected_pin = configured_admin_pin()
+
+        if not recycle_bin_ready:
+            st.error(
+                "Deletion is locked until "
+                "supabase_recycle_bin_setup.sql has been run."
+            )
+
+        elif not expected_pin:
+            st.error(
+                "Deletion is locked. Add ABAYO_ADMIN_PIN to your "
+                "Streamlit secrets first."
+            )
+
+        elif not admin_is_unlocked():
+            entered_pin = st.text_input(
+                "Administrator PIN",
+                type="password",
+                key=f"dashboard_admin_pin_{machine_id}",
+            )
+
+            unlock_column, cancel_column = st.columns(2)
+
+            with unlock_column:
+                if st.button(
+                    "Unlock deletion",
+                    key=f"unlock_delete_{machine_id}",
+                    use_container_width=True,
+                ):
+                    if hmac.compare_digest(entered_pin, expected_pin):
+                        st.session_state.admin_actions_unlocked = True
+                        st.rerun()
+                    else:
+                        st.error("Incorrect administrator PIN.")
+
+            with cancel_column:
+                if st.button(
+                    "Cancel",
+                    key=f"cancel_locked_delete_{machine_id}",
+                    use_container_width=True,
+                ):
+                    st.session_state.pending_machine_delete = None
+                    st.rerun()
+
+        else:
+            typed_machine_name = st.text_input(
+                f'Type "{machine_name_raw}" to confirm',
+                key=f"confirm_machine_name_{machine_id}",
+            )
+
+            confirm_column, cancel_column = st.columns(2)
+
+            with confirm_column:
+                if st.button(
+                    "Move to Recycle Bin",
+                    key=f"confirm_soft_delete_{machine_id}",
+                    type="primary",
+                    use_container_width=True,
+                    disabled=(
+                        typed_machine_name.strip()
+                        != machine_name_raw
+                    ),
+                ):
+                    try:
+                        soft_delete_machine(supabase, machine_id)
+
+                        remaining_machines = [
+                            machine
+                            for machine in machines
+                            if machine.get("id") != machine_id
+                        ]
+
+                        st.session_state.selected_machine_id = (
+                            remaining_machines[0].get("id")
+                            if remaining_machines
+                            else None
+                        )
+                        st.session_state.pending_machine_delete = None
+                        st.session_state.dashboard_flash_message = (
+                            f"{machine_name_raw} was moved to the "
+                            "Recycle Bin."
+                        )
+                        st.rerun()
+                    except Exception as error:
+                        st.error(f"Unable to delete machine: {error}")
+
+            with cancel_column:
+                if st.button(
+                    "Cancel",
+                    key=f"cancel_soft_delete_{machine_id}",
+                    use_container_width=True,
+                ):
+                    st.session_state.pending_machine_delete = None
+                    st.rerun()
 
 else:
     st.info("No machine registered. Select Add Machine to begin.")
@@ -789,7 +980,7 @@ with action_1:
     st.html(
         """
         <div class="action-card">
-            <div class="action-icon">🔧</div>
+            <div class="action-icon">ðŸ”§</div>
             <div class="action-title">Diagnose a Fault</div>
             <div class="action-note">
                 Find possible causes and recommended checks.
@@ -808,7 +999,7 @@ with action_2:
     st.html(
         """
         <div class="action-card">
-            <div class="action-icon">📖</div>
+            <div class="action-icon">ðŸ“–</div>
             <div class="action-title">Browse Recipes</div>
             <div class="action-note">
                 Search and review machine recipe parameters.
@@ -827,7 +1018,7 @@ with action_3:
     st.html(
         """
         <div class="action-card">
-            <div class="action-icon">📋</div>
+            <div class="action-icon">ðŸ“‹</div>
             <div class="action-title">Maintenance History</div>
             <div class="action-note">
                 View servicing and maintenance records.
@@ -846,7 +1037,7 @@ with action_4:
     st.html(
         """
         <div class="action-card">
-            <div class="action-icon">⚙️</div>
+            <div class="action-icon">âš™ï¸</div>
             <div class="action-title">Machine Components</div>
             <div class="action-note">
                 Explore machine parts and components.
@@ -920,7 +1111,7 @@ else:
 st.html(
     """
     <div class="app-footer">
-        ABAYO AI Operations Assistant • System Version 0.5
+        ABAYO AI Operations Assistant â€¢ System Version 0.6
     </div>
     """
 )
