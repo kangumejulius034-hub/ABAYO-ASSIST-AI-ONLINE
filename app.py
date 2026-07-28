@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 
 import hmac
@@ -331,25 +330,6 @@ st.html(
         font-size: 12px;
     }
 
-    @media (max-width: 800px) {
-        .machine-details {
-            grid-template-columns: 1fr;
-        }
-
-        .machine-detail {
-            padding: 10px 0;
-        }
-
-        .machine-detail + .machine-detail {
-            border-left: none;
-            border-top: 1px solid #f0f2f5;
-            padding-left: 0;
-        }
-
-        .page-heading {
-            font-size: 25px;
-        }
-    }
     </style>
     """
 )
@@ -444,6 +424,51 @@ def configured_admin_pin() -> str:
 
 def admin_is_unlocked() -> bool:
     return bool(st.session_state.admin_actions_unlocked)
+
+
+RECORD_TABLES = {
+    "Recipes": "recipes",
+    "Faults": "faults",
+    "Components": "machine_components",
+    "Maintenance records": "maintenance_history",
+    "Machine modules": "machine_modules",
+    "Activity records": "machine_activity",
+}
+
+
+def record_name(record: dict) -> str:
+    """Return a readable name for records from different ABAYO tables."""
+
+    preferred_fields = (
+        "recipe_name",
+        "fault_name",
+        "fault_title",
+        "component_name",
+        "name",
+        "title",
+        "description",
+        "module_name",
+        "maintenance_type",
+        "activity_type",
+    )
+
+    for field in preferred_fields:
+        value = record.get(field)
+        if value not in (None, ""):
+            return str(value)
+
+    return f"Record {record.get('id', 'without ID')}"
+
+
+def delete_record(table_name: str, record_id) -> None:
+    """Permanently delete one selected Supabase record."""
+
+    (
+        supabase.table(table_name)
+        .delete()
+        .eq("id", record_id)
+        .execute()
+    )
 
 
 # =========================================================
@@ -1055,6 +1080,96 @@ with action_4:
 
 
 # =========================================================
+# DELETE RECORDS
+# =========================================================
+
+st.html('<div class="section-heading">Manage Saved Records</div>')
+
+with st.expander("🗑️ Delete recipes, faults, components and other records"):
+    st.warning(
+        "Records deleted here are removed permanently. "
+        "Machines continue to use the separate 30-day Recycle Bin."
+    )
+
+    if not database_connected:
+        st.error("Connect ABAYO to Supabase before deleting records.")
+    else:
+        record_type = st.selectbox(
+            "Choose what you want to delete",
+            list(RECORD_TABLES),
+            key="delete_record_type",
+        )
+
+        selected_table = RECORD_TABLES[record_type]
+        saved_records = load_table(selected_table)
+
+        if not saved_records:
+            st.info(f"No {record_type.lower()} found.")
+        else:
+            selectable_records = [
+                record
+                for record in saved_records
+                if record.get("id") is not None
+            ]
+
+            if not selectable_records:
+                st.error(
+                    f"{record_type} were found, but they do not have "
+                    "an ID column that ABAYO can delete safely."
+                )
+            else:
+                record_by_id = {
+                    str(record["id"]): record
+                    for record in selectable_records
+                }
+
+                selected_record_id = st.selectbox(
+                    f"Select one of {len(selectable_records)} "
+                    f"{record_type.lower()}",
+                    list(record_by_id),
+                    format_func=lambda item_id: (
+                        record_name(record_by_id[item_id])
+                    ),
+                    key=f"delete_selector_{selected_table}",
+                )
+
+                selected_record = record_by_id[selected_record_id]
+                selected_record_name = record_name(selected_record)
+
+                st.write(f"Selected: **{selected_record_name}**")
+
+                confirm_delete = st.checkbox(
+                    f"I understand that {selected_record_name} "
+                    "will be permanently deleted.",
+                    key=f"confirm_delete_{selected_table}_"
+                    f"{selected_record_id}",
+                )
+
+                if st.button(
+                    f"🗑️ Permanently delete {selected_record_name}",
+                    type="primary",
+                    use_container_width=True,
+                    disabled=not confirm_delete,
+                    key=f"delete_{selected_table}_{selected_record_id}",
+                ):
+                    try:
+                        delete_record(
+                            selected_table,
+                            selected_record["id"],
+                        )
+                        st.success(
+                            f"{selected_record_name} was deleted "
+                            "successfully."
+                        )
+                        st.rerun()
+                    except Exception as error:
+                        st.error(
+                            f"Unable to delete {selected_record_name}: "
+                            f"{error}"
+                        )
+
+
+# =========================================================
 # RECENT ACTIVITY
 # =========================================================
 
@@ -1112,7 +1227,7 @@ else:
 st.html(
     """
     <div class="app-footer">
-        ABAYO AI Operations Assistant • System Version 0.6
+        ABAYO AI Operations Assistant • System Version 0.6.2
     </div>
     """
 )
