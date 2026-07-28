@@ -21,7 +21,7 @@ from supabase_engine import get_supabase_client
 
 st.set_page_config(
     page_title="ABAYO",
-    page_icon="ðŸ ",
+    page_icon="🏠",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -450,7 +450,7 @@ def admin_is_unlocked() -> bool:
 # =========================================================
 
 with st.sidebar:
-    st.markdown("## ðŸ”· ABAYO")
+    st.markdown("## 🔷 ABAYO")
     st.caption("AI Operations Assistant")
 
     st.markdown("---")
@@ -458,68 +458,68 @@ with st.sidebar:
     st.page_link(
         "app.py",
         label="Home",
-        icon="ðŸ ",
+        icon="🏠",
         use_container_width=True,
     )
 
     st.markdown("#### MACHINES")
 
-    if st.button("ï¼‹  Add Machine", use_container_width=True):
+    if st.button("＋  Add Machine", use_container_width=True):
         st.session_state.show_add_machine = True
 
     st.page_link(
         "pages/1_fault_diagnosis.py",
         label="Fault Diagnosis",
-        icon="ðŸ”§",
+        icon="🔧",
         use_container_width=True,
     )
 
     st.page_link(
         "pages/2_recipe_library.py",
         label="Recipe Library",
-        icon="ðŸ“–",
+        icon="📖",
         use_container_width=True,
     )
 
     st.page_link(
         "pages/3_maintenance_history.py",
         label="Maintenance",
-        icon="ðŸ› ï¸",
+        icon="🛠️",
         use_container_width=True,
     )
 
     st.page_link(
         "pages/4_smart_toubleshooter.py",
         label="Knowledge Base",
-        icon="ðŸ§ ",
+        icon="🧠",
         use_container_width=True,
     )
 
     st.page_link(
         "pages/5_machine_components.py",
         label="Machine Components",
-        icon="âš™ï¸",
+        icon="⚙️",
         use_container_width=True,
     )
 
     st.page_link(
         "pages/6_recycle_bin.py",
         label=f"Recycle Bin ({len(deleted_machines)})",
-        icon="ðŸ—‘ï¸",
+        icon="🗑️",
         use_container_width=True,
     )
 
     st.markdown("---")
     st.markdown("#### ABAYO ASSISTANT")
-    st.markdown("ðŸ¤– **AI Assistant**")
+    st.markdown("🤖 **AI Assistant**")
     st.caption("Coming soon")
 
     st.markdown("---")
 
     if database_connected:
-        st.success("â— Cloud system connected")
+        st.success("● Cloud system connected")
     else:
-        st.error("â— Cloud system disconnected")
+        st.error("● Cloud system disconnected")
 
     st.caption("System Version 0.6")
 
@@ -531,7 +531,7 @@ with st.sidebar:
 st.html(
     """
     <div class="page-heading">
-        Welcome back, Kangume Julius ðŸ‘‹
+        Welcome back, Kangume Julius 👋
     </div>
     <div class="page-subtitle">
         Monitor machines, diagnose faults and preserve operational knowledge.
@@ -569,7 +569,7 @@ with metric_1:
     st.html(
         f"""
         <div class="metric-card">
-            <div class="metric-icon green-icon">ðŸ“¡</div>
+            <div class="metric-icon green-icon">📡</div>
             <div class="metric-label">Machines Online</div>
             <div class="metric-value">{online_count}</div>
             <div class="metric-note">
@@ -583,7 +583,7 @@ with metric_2:
     st.html(
         f"""
         <div class="metric-card">
-            <div class="metric-icon red-icon">âš ï¸</div>
+            <div class="metric-icon red-icon">⚠️</div>
             <div class="metric-label">Fault Records</div>
             <div class="metric-value">{fault_count}</div>
             <div class="metric-note">Saved fault knowledge</div>
@@ -595,7 +595,7 @@ with metric_3:
     st.html(
         f"""
         <div class="metric-card">
-            <div class="metric-icon orange-icon">ðŸ—“ï¸</div>
+            <div class="metric-icon orange-icon">🗓️</div>
             <div class="metric-label">Maintenance Records</div>
             <div class="metric-value">{maintenance_count}</div>
             <div class="metric-note">Recorded service history</div>
@@ -609,7 +609,7 @@ with metric_4:
     st.html(
         f"""
         <div class="metric-card">
-            <div class="metric-icon blue-icon">â˜ï¸</div>
+            <div class="metric-icon blue-icon">☁️</div>
             <div class="metric-label">Cloud Status</div>
             <div class="metric-value connected">{cloud_status}</div>
             <div class="metric-note">Supabase database</div>
@@ -661,7 +661,7 @@ if machines:
 
     with add_column:
         if st.button(
-            "ï¼‹ Add Machine",
+            "＋ Add Machine",
             key="workspace_add_machine",
             use_container_width=True,
         ):
@@ -725,7 +725,7 @@ if machines:
         f"""
         <div class="machine-card">
             <div class="machine-header">
-                <div class="machine-icon">ðŸ­</div>
+                <div class="machine-icon">🏭</div>
 
                 <div>
                     <div class="machine-name">{machine_name}</div>
@@ -753,7 +753,7 @@ if machines:
             </div>
 
             <div class="machine-status {status_class}">
-                â— {status}
+                ● {status}
             </div>
         </div>
         """
@@ -763,7 +763,7 @@ if machines:
 
     with delete_column:
         if st.button(
-            "ðŸ—‘ï¸ Delete",
+            "🗑️ Delete",
             key=f"open_delete_machine_{machine_id}",
             help="Move this machine to the Recycle Bin",
             use_container_width=True,
@@ -980,7 +980,7 @@ with action_1:
     st.html(
         """
         <div class="action-card">
-            <div class="action-icon">ðŸ”§</div>
+            <div class="action-icon">🔧</div>
             <div class="action-title">Diagnose a Fault</div>
             <div class="action-note">
                 Find possible causes and recommended checks.
@@ -999,7 +999,7 @@ with action_2:
     st.html(
         """
         <div class="action-card">
-            <div class="action-icon">ðŸ“–</div>
+            <div class="action-icon">📖</div>
             <div class="action-title">Browse Recipes</div>
             <div class="action-note">
                 Search and review machine recipe parameters.
@@ -1018,7 +1018,7 @@ with action_3:
     st.html(
         """
         <div class="action-card">
-            <div class="action-icon">ðŸ“‹</div>
+            <div class="action-icon">📋</div>
             <div class="action-title">Maintenance History</div>
             <div class="action-note">
                 View servicing and maintenance records.
@@ -1037,7 +1037,7 @@ with action_4:
     st.html(
         """
         <div class="action-card">
-            <div class="action-icon">âš™ï¸</div>
+            <div class="action-icon">⚙️</div>
             <div class="action-title">Machine Components</div>
             <div class="action-note">
                 Explore machine parts and components.
@@ -1111,7 +1111,7 @@ else:
 st.html(
     """
     <div class="app-footer">
-        ABAYO AI Operations Assistant â€¢ System Version 0.6
+        ABAYO AI Operations Assistant • System Version 0.6
     </div>
     """
 )
