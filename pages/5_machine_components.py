@@ -1,5 +1,7 @@
+import json
 import re
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 import streamlit as st
@@ -10,6 +12,8 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+
+import component_engine
 
 from component_engine import (
     add_component,
@@ -59,6 +63,110 @@ IMAGE_ROOT = (
     / "knowledge"
     / "component_images"
 )
+
+RECYCLED_COMPONENTS_FILE = (
+    PROJECT_ROOT
+    / "knowledge"
+    / "recycle_bin_components.json"
+)
+
+
+def save_active_components(components: list[dict]) -> None:
+    """Save components through the engine or its existing JSON file."""
+
+    for function_name in (
+        "save_components",
+        "save_all_components",
+    ):
+        save_function = getattr(
+            component_engine,
+            function_name,
+            None,
+        )
+
+        if callable(save_function):
+            save_function(components)
+            return
+
+    component_file_candidates = (
+        PROJECT_ROOT / "knowledge" / "components.json",
+        PROJECT_ROOT / "knowledge" / "machine_components.json",
+    )
+
+    component_file = next(
+        (
+            file_path
+            for file_path in component_file_candidates
+            if file_path.exists()
+        ),
+        component_file_candidates[0],
+    )
+
+    component_file.parent.mkdir(parents=True, exist_ok=True)
+
+    with component_file.open("w", encoding="utf-8") as file:
+        json.dump(
+            components,
+            file,
+            indent=4,
+            ensure_ascii=False,
+        )
+
+
+def move_component_to_recycle_bin(
+    component_number: str,
+) -> None:
+    """Move one component from the active library to recoverable storage."""
+
+    components = load_components()
+    removed_component = None
+
+    for component_index, component in enumerate(components):
+        if str(component.get("component_number", "")) == str(
+            component_number
+        ):
+            removed_component = components.pop(component_index)
+            break
+
+    if removed_component is None:
+        raise ValueError(
+            "The selected machine component could not be found."
+        )
+
+    removed_component["_deleted_at"] = datetime.now(
+        timezone.utc
+    ).isoformat()
+    removed_component["_deleted_from"] = "components"
+
+    try:
+        with RECYCLED_COMPONENTS_FILE.open(
+            "r",
+            encoding="utf-8",
+        ) as file:
+            recycled_components = json.load(file)
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        recycled_components = []
+
+    if not isinstance(recycled_components, list):
+        recycled_components = []
+
+    recycled_components.append(removed_component)
+    save_active_components(components)
+    RECYCLED_COMPONENTS_FILE.parent.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    with RECYCLED_COMPONENTS_FILE.open(
+        "w",
+        encoding="utf-8",
+    ) as file:
+        json.dump(
+            recycled_components,
+            file,
+            indent=4,
+            ensure_ascii=False,
+        )
 
 
 def safe_folder_name(text: str) -> str:
@@ -180,6 +288,67 @@ def display_component_images(
             )
 
 
+def display_component(component: dict) -> None:
+    """Display one component as a normal readable app card."""
+
+    top_left, top_right = st.columns(2)
+
+    with top_left:
+        st.write(
+            f"**Category:** "
+            f"{component.get('category', 'Not recorded')}"
+        )
+        st.write(
+            f"**Manufacturer:** "
+            f"{component.get('manufacturer') or 'Not recorded'}"
+        )
+        st.write(
+            f"**Model number:** "
+            f"{component.get('model_number') or 'Not recorded'}"
+        )
+        st.write(
+            f"**Part number:** "
+            f"{component.get('part_number') or 'Not recorded'}"
+        )
+
+    with top_right:
+        st.write(
+            f"**Station:** "
+            f"{component.get('station', 'Not recorded')}"
+        )
+        st.write(
+            f"**Spare-part location:** "
+            f"{component.get('spare_part_location') or 'Not recorded'}"
+        )
+
+        related_faults = component.get("related_faults", [])
+
+        if related_faults:
+            st.write(
+                "**Related faults:** "
+                + ", ".join(str(item) for item in related_faults)
+            )
+
+    for heading, field_name in (
+        ("Function", "function"),
+        ("Common Failures", "common_failures"),
+        ("Fault Symptoms", "fault_symptoms"),
+        ("Inspection Procedure", "inspection_procedure"),
+        ("Replacement Procedure", "replacement_procedure"),
+    ):
+        st.write(f"### {heading}")
+        st.write(component.get(field_name, "Not recorded"))
+
+    safety_notes = component.get("safety_notes")
+
+    if safety_notes:
+        st.warning(f"Safety: {safety_notes}")
+
+    display_component_images(
+        component.get("image_paths", [])
+    )
+
+
 def parse_related_faults(
     text: str,
 ) -> list[str]:
@@ -264,128 +433,125 @@ with view_tab:
     )
 
     if results:
-        for component in results:
-            component_number = component.get(
-                "component_number",
-                "Component",
+        for component_index, component in enumerate(results):
+            component_number = str(
+                component.get("component_number")
+                or f"Component {component_index + 1}"
+            )
+            component_name = str(
+                component.get("component_name")
+                or "Unnamed component"
+            )
+            station = str(
+                component.get("station")
+                or "Not recorded"
             )
 
-            component_name = component.get(
-                "component_name",
-                "Unnamed component",
-            )
+            item_column, menu_column = st.columns([8, 1])
 
-            station = component.get(
-                "station",
-                "Not recorded",
-            )
+            with item_column:
+                st.markdown(
+                    f"**{component_number} — {component_name}**"
+                )
+                st.caption(station)
 
-            with st.expander(
-                f"{component_number} — {component_name} — {station}"
-            ):
-                top_left, top_right = st.columns(2)
-
-                with top_left:
-                    st.write(
-                        f"**Category:** "
-                        f"{component.get('category', 'Not recorded')}"
-                    )
-
-                    st.write(
-                        f"**Manufacturer:** "
-                        f"{component.get('manufacturer', 'Not recorded') or 'Not recorded'}"
-                    )
-
-                    st.write(
-                        f"**Model number:** "
-                        f"{component.get('model_number', 'Not recorded') or 'Not recorded'}"
-                    )
-
-                    st.write(
-                        f"**Part number:** "
-                        f"{component.get('part_number', 'Not recorded') or 'Not recorded'}"
-                    )
-
-                with top_right:
-                    st.write(
-                        f"**Spare-part location:** "
-                        f"{component.get('spare_part_location', 'Not recorded') or 'Not recorded'}"
-                    )
-
-                    related_faults = component.get(
-                        "related_faults",
-                        [],
-                    )
-
-                    if related_faults:
-                        st.write(
-                            "**Related faults:** "
-                            + ", ".join(
-                                str(item)
-                                for item in related_faults
-                            )
+            with menu_column:
+                with st.popover(
+                    "⋮",
+                    help=f"Options for {component_name}",
+                    use_container_width=True,
+                ):
+                    if st.button(
+                        "Open",
+                        key=f"open_component_{component_index}",
+                        use_container_width=True,
+                    ):
+                        st.session_state.open_component_number = (
+                            component_number
                         )
+                        st.session_state.pending_component_delete = None
+                        st.rerun()
 
-                st.write("### Function")
+                    if st.button(
+                        "🗑️ Delete",
+                        key=f"delete_component_{component_index}",
+                        use_container_width=True,
+                    ):
+                        st.session_state.pending_component_delete = (
+                            component_number
+                        )
+                        st.session_state.open_component_number = None
+                        st.rerun()
 
-                st.write(
-                    component.get(
-                        "function",
-                        "Not recorded",
+            if (
+                st.session_state.get("open_component_number")
+                == component_number
+            ):
+                with st.container(border=True):
+                    st.subheader(
+                        f"{component_number} — {component_name}"
                     )
-                )
+                    display_component(component)
 
-                st.write("### Common Failures")
+                    if st.button(
+                        "Close",
+                        key=f"close_component_{component_index}",
+                    ):
+                        st.session_state.open_component_number = None
+                        st.rerun()
 
-                st.write(
-                    component.get(
-                        "common_failures",
-                        "Not recorded",
-                    )
-                )
-
-                st.write("### Fault Symptoms")
-
-                st.write(
-                    component.get(
-                        "fault_symptoms",
-                        "Not recorded",
-                    )
-                )
-
-                st.write("### Inspection Procedure")
-
-                st.write(
-                    component.get(
-                        "inspection_procedure",
-                        "Not recorded",
-                    )
-                )
-
-                st.write("### Replacement Procedure")
-
-                st.write(
-                    component.get(
-                        "replacement_procedure",
-                        "Not recorded",
-                    )
-                )
-
-                safety_notes = component.get(
-                    "safety_notes"
-                )
-
-                if safety_notes:
+            if (
+                st.session_state.get("pending_component_delete")
+                == component_number
+            ):
+                with st.container(border=True):
                     st.warning(
-                        f"Safety: {safety_notes}"
+                        f'Move "{component_name}" to the Recycle Bin?'
                     )
 
-                display_component_images(
-                    component.get(
-                        "image_paths",
-                        [],
+                    confirm_delete = st.checkbox(
+                        "Yes, move this component to the Recycle Bin.",
+                        key=f"confirm_component_{component_index}",
                     )
-                )
+
+                    confirm_column, cancel_column = st.columns(2)
+
+                    with confirm_column:
+                        if st.button(
+                            "🗑️ Move to Recycle Bin",
+                            type="primary",
+                            disabled=not confirm_delete,
+                            key=f"confirm_move_component_{component_index}",
+                            use_container_width=True,
+                        ):
+                            try:
+                                move_component_to_recycle_bin(
+                                    component_number
+                                )
+                                st.session_state.pending_component_delete = (
+                                    None
+                                )
+                                st.success(
+                                    f"{component_name} was moved to "
+                                    "the Recycle Bin."
+                                )
+                                st.rerun()
+                            except Exception as error:
+                                st.error(
+                                    "Unable to move component: "
+                                    f"{error}"
+                                )
+
+                    with cancel_column:
+                        if st.button(
+                            "Cancel",
+                            key=f"cancel_component_{component_index}",
+                            use_container_width=True,
+                        ):
+                            st.session_state.pending_component_delete = None
+                            st.rerun()
+
+            st.divider()
 
     else:
         st.info(
