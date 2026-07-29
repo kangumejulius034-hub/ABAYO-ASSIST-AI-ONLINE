@@ -1,5 +1,7 @@
+import json
 import re
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 import streamlit as st
@@ -69,10 +71,72 @@ IMAGE_ROOT = (
     / "troubleshooting_images"
 )
 
+RECYCLED_TROUBLESHOOTING_FILE = (
+    PROJECT_ROOT
+    / "knowledge"
+    / "recycle_bin_troubleshooting.json"
+)
+
 
 # ---------------------------------------------------------
 # HELPER FUNCTIONS
 # ---------------------------------------------------------
+
+def move_solution_to_recycle_bin(
+    solution_number: str,
+) -> None:
+    """Move one troubleshooting solution into recoverable storage."""
+
+    solutions = load_troubleshooting()
+    removed_solution = None
+
+    for solution_index, solution in enumerate(solutions):
+        if str(solution.get("solution_number", "")) == str(
+            solution_number
+        ):
+            removed_solution = solutions.pop(solution_index)
+            break
+
+    if removed_solution is None:
+        raise ValueError(
+            "The selected troubleshooting solution could not be found."
+        )
+
+    removed_solution["_deleted_at"] = datetime.now(
+        timezone.utc
+    ).isoformat()
+    removed_solution["_deleted_from"] = "troubleshooting"
+
+    try:
+        with RECYCLED_TROUBLESHOOTING_FILE.open(
+            "r",
+            encoding="utf-8",
+        ) as file:
+            recycled_solutions = json.load(file)
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        recycled_solutions = []
+
+    if not isinstance(recycled_solutions, list):
+        recycled_solutions = []
+
+    recycled_solutions.append(removed_solution)
+    save_troubleshooting(solutions)
+    RECYCLED_TROUBLESHOOTING_FILE.parent.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    with RECYCLED_TROUBLESHOOTING_FILE.open(
+        "w",
+        encoding="utf-8",
+    ) as file:
+        json.dump(
+            recycled_solutions,
+            file,
+            indent=4,
+            ensure_ascii=False,
+        )
+
 
 def safe_folder_name(text: str) -> str:
     """Convert text into a safe Windows folder name."""
@@ -367,6 +431,61 @@ def parse_comma_separated_items(
     ]
 
 
+def display_troubleshooting_solution(record: dict) -> None:
+    """Display one troubleshooting solution as a normal app card."""
+
+    solution_number = record.get(
+        "solution_number",
+        "Troubleshooting solution",
+    )
+    fault_name = record.get(
+        "fault",
+        "Unnamed fault",
+    )
+
+    st.subheader(f"{solution_number} — {fault_name}")
+    st.write(
+        f"**Station:** {record.get('station', 'Not recorded')}"
+    )
+    st.write(
+        f"**Possible cause:** "
+        f"{record.get('cause', 'Not recorded')}"
+    )
+    st.write(
+        f"**Inspection:** "
+        f"{record.get('inspection', 'Not recorded')}"
+    )
+    st.write(
+        f"**Repair:** {record.get('repair', 'Not recorded')}"
+    )
+
+    notes = record.get("notes")
+
+    if notes:
+        st.write(f"**Shared notes:** {notes}")
+
+    keywords = record.get("keywords", [])
+
+    if keywords:
+        st.write(
+            "**Keywords:** "
+            + ", ".join(str(item) for item in keywords)
+        )
+
+    aliases = record.get("aliases", [])
+
+    if aliases:
+        st.write(
+            "**Alternative fault descriptions:** "
+            + ", ".join(str(item) for item in aliases)
+        )
+
+    display_saved_images(
+        get_record_images(record),
+        "Troubleshooting Photos",
+    )
+
+
 # ---------------------------------------------------------
 # PAGE HEADER
 # ---------------------------------------------------------
@@ -388,10 +507,11 @@ st.info(
 # TABS
 # ---------------------------------------------------------
 
-search_tab, teach_tab = st.tabs(
+search_tab, teach_tab, saved_solutions_tab = st.tabs(
     [
         "🔍 Troubleshoot Fault",
         "➕ Teach ABAYO",
+        "📚 Saved Solutions",
     ]
 )
 
@@ -961,6 +1081,143 @@ with teach_tab:
                 )
 
                 st.exception(error)
+
+
+# ---------------------------------------------------------
+# SAVED SOLUTIONS TAB
+# ---------------------------------------------------------
+
+with saved_solutions_tab:
+    st.write("## Saved Troubleshooting Solutions")
+    st.caption(
+        "Use the menu beside a solution to open it or move it "
+        "to the Recycle Bin."
+    )
+
+    saved_solutions = load_troubleshooting()
+
+    if not saved_solutions:
+        st.info("No troubleshooting solutions have been saved.")
+
+    else:
+        for solution_index, solution in enumerate(saved_solutions):
+            solution_number = str(
+                solution.get("solution_number")
+                or f"Solution {solution_index + 1}"
+            )
+            fault_name = str(
+                solution.get("fault")
+                or "Unnamed fault"
+            )
+
+            item_column, menu_column = st.columns([8, 1])
+
+            with item_column:
+                st.markdown(
+                    f"**{solution_number} — {fault_name}**"
+                )
+                st.caption(
+                    str(
+                        solution.get("station")
+                        or "Station not recorded"
+                    )
+                )
+
+            with menu_column:
+                with st.popover(
+                    "⋮",
+                    help=f"Options for {solution_number}",
+                    use_container_width=True,
+                ):
+                    if st.button(
+                        "Open",
+                        key=f"open_solution_{solution_index}",
+                        use_container_width=True,
+                    ):
+                        st.session_state.open_solution_number = (
+                            solution_number
+                        )
+                        st.session_state.pending_solution_delete = None
+                        st.rerun()
+
+                    if st.button(
+                        "🗑️ Delete",
+                        key=f"delete_solution_{solution_index}",
+                        use_container_width=True,
+                    ):
+                        st.session_state.pending_solution_delete = (
+                            solution_number
+                        )
+                        st.session_state.open_solution_number = None
+                        st.rerun()
+
+            if (
+                st.session_state.get("open_solution_number")
+                == solution_number
+            ):
+                with st.container(border=True):
+                    display_troubleshooting_solution(solution)
+
+                    if st.button(
+                        "Close",
+                        key=f"close_solution_{solution_index}",
+                    ):
+                        st.session_state.open_solution_number = None
+                        st.rerun()
+
+            if (
+                st.session_state.get("pending_solution_delete")
+                == solution_number
+            ):
+                with st.container(border=True):
+                    st.warning(
+                        f'Move "{solution_number}" to the Recycle Bin?'
+                    )
+
+                    confirm_delete = st.checkbox(
+                        "Yes, move this troubleshooting solution "
+                        "to the Recycle Bin.",
+                        key=f"confirm_solution_{solution_index}",
+                    )
+
+                    confirm_column, cancel_column = st.columns(2)
+
+                    with confirm_column:
+                        if st.button(
+                            "🗑️ Move to Recycle Bin",
+                            type="primary",
+                            disabled=not confirm_delete,
+                            key=f"confirm_move_solution_{solution_index}",
+                            use_container_width=True,
+                        ):
+                            try:
+                                move_solution_to_recycle_bin(
+                                    solution_number
+                                )
+                                st.session_state.pending_solution_delete = (
+                                    None
+                                )
+                                st.success(
+                                    f"{solution_number} was moved to "
+                                    "the Recycle Bin."
+                                )
+                                st.rerun()
+                            except Exception as error:
+                                st.error(
+                                    "Unable to move troubleshooting "
+                                    f"solution: {error}"
+                                )
+
+                    with cancel_column:
+                        if st.button(
+                            "Cancel",
+                            key=f"cancel_solution_{solution_index}",
+                            use_container_width=True,
+                        ):
+                            st.session_state.pending_solution_delete = None
+                            st.rerun()
+
+            st.divider()
 
 
 st.divider()
