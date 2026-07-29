@@ -1,5 +1,6 @@
 import json
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -61,6 +62,9 @@ STATIONS = [
 ]
 
 FAULTS_FILE = PROJECT_ROOT / "knowledge" / "faults.json"
+RECYCLED_FAULTS_FILE = (
+    PROJECT_ROOT / "knowledge" / "recycle_bin_faults.json"
+)
 
 
 # ---------------------------------------------------------
@@ -114,19 +118,48 @@ def load_saved_faults() -> list[dict[str, Any]]:
     ]
 
 
-def delete_saved_fault(record_index: int) -> None:
-    """Delete one fault from faults.json while preserving other records."""
+def move_fault_to_recycle_bin(record_index: int) -> None:
+    """Move one active fault into the recoverable fault recycle bin."""
 
     faults = load_saved_faults()
 
     if not 0 <= record_index < len(faults):
         raise IndexError("The selected fault no longer exists.")
 
-    faults.pop(record_index)
+    recycled_fault = faults.pop(record_index)
+    recycled_fault["_deleted_at"] = datetime.now(
+        timezone.utc
+    ).isoformat()
+    recycled_fault["_deleted_from"] = "faults"
+
+    try:
+        with RECYCLED_FAULTS_FILE.open(
+            "r",
+            encoding="utf-8",
+        ) as file:
+            recycled_faults = json.load(file)
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        recycled_faults = []
+
+    if not isinstance(recycled_faults, list):
+        recycled_faults = []
+
+    recycled_faults.append(recycled_fault)
     FAULTS_FILE.parent.mkdir(parents=True, exist_ok=True)
 
     with FAULTS_FILE.open("w", encoding="utf-8") as file:
         json.dump(faults, file, indent=4, ensure_ascii=False)
+
+    with RECYCLED_FAULTS_FILE.open(
+        "w",
+        encoding="utf-8",
+    ) as file:
+        json.dump(
+            recycled_faults,
+            file,
+            indent=4,
+            ensure_ascii=False,
+        )
 
 
 def saved_fault_name(record: dict[str, Any], number: int) -> str:
@@ -1150,11 +1183,11 @@ with saved_faults_tab:
             ):
                 with st.container(border=True):
                     st.warning(
-                        f'Delete "{fault_name}" permanently?'
+                        f'Move "{fault_name}" to the Recycle Bin?'
                     )
 
                     confirm_delete = st.checkbox(
-                        "Yes, delete this fault.",
+                        "Yes, move this fault to the Recycle Bin.",
                         key=f"confirm_saved_fault_{fault_index}",
                     )
 
@@ -1162,19 +1195,22 @@ with saved_faults_tab:
 
                     with confirm_column:
                         if st.button(
-                            "Delete permanently",
+                            "Move to Recycle Bin",
                             type="primary",
                             disabled=not confirm_delete,
                             key=f"confirm_delete_saved_fault_{fault_index}",
                             use_container_width=True,
                         ):
                             try:
-                                delete_saved_fault(fault_index)
+                                move_fault_to_recycle_bin(
+                                    fault_index
+                                )
                                 st.session_state.pending_fault_delete_index = (
                                     None
                                 )
                                 st.success(
-                                    f"{fault_name} was deleted."
+                                    f"{fault_name} was moved to "
+                                    "the Recycle Bin."
                                 )
                                 st.rerun()
                             except Exception as error:
