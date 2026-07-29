@@ -1,3 +1,6 @@
+
+
+
 from __future__ import annotations
 
 import hmac
@@ -426,51 +429,6 @@ def admin_is_unlocked() -> bool:
     return bool(st.session_state.admin_actions_unlocked)
 
 
-RECORD_TABLES = {
-    "Recipes": "recipes",
-    "Faults": "faults",
-    "Components": "machine_components",
-    "Maintenance records": "maintenance_history",
-    "Machine modules": "machine_modules",
-    "Activity records": "machine_activity",
-}
-
-
-def record_name(record: dict) -> str:
-    """Return a readable name for records from different ABAYO tables."""
-
-    preferred_fields = (
-        "recipe_name",
-        "fault_name",
-        "fault_title",
-        "component_name",
-        "name",
-        "title",
-        "description",
-        "module_name",
-        "maintenance_type",
-        "activity_type",
-    )
-
-    for field in preferred_fields:
-        value = record.get(field)
-        if value not in (None, ""):
-            return str(value)
-
-    return f"Record {record.get('id', 'without ID')}"
-
-
-def delete_record(table_name: str, record_id) -> None:
-    """Permanently delete one selected Supabase record."""
-
-    (
-        supabase.table(table_name)
-        .delete()
-        .eq("id", record_id)
-        .execute()
-    )
-
-
 # =========================================================
 # CUSTOM SIDEBAR
 # =========================================================
@@ -666,7 +624,7 @@ if machines:
         list(machine_choices.keys())[0],
     )
 
-    switch_column, add_column = st.columns([4, 1])
+    switch_column, menu_column, add_column = st.columns([4, 0.65, 1.25])
 
     with switch_column:
         chosen_name = st.selectbox(
@@ -684,6 +642,30 @@ if machines:
             st.session_state.selected_machine_id = chosen_id
             st.session_state.pending_machine_delete = None
             st.rerun()
+
+    with menu_column:
+        with st.popover(
+            "⋮",
+            help="Machine options",
+            use_container_width=True,
+        ):
+            if st.button(
+                "Open",
+                key=f"open_machine_{chosen_id}",
+                use_container_width=True,
+            ):
+                st.session_state.selected_machine_id = chosen_id
+                st.session_state.pending_machine_delete = None
+                st.rerun()
+
+            if st.button(
+                "Delete",
+                key=f"menu_delete_machine_{chosen_id}",
+                help="Move this machine to the Recycle Bin",
+                use_container_width=True,
+            ):
+                st.session_state.pending_machine_delete = chosen_id
+                st.rerun()
 
     with add_column:
         if st.button(
@@ -784,17 +766,6 @@ if machines:
         </div>
         """
     )
-
-    delete_spacer, delete_column = st.columns([5, 1])
-
-    with delete_column:
-        if st.button(
-            "🗑️ Delete",
-            key=f"open_delete_machine_{machine_id}",
-            help="Move this machine to the Recycle Bin",
-            use_container_width=True,
-        ):
-            st.session_state.pending_machine_delete = machine_id
 
     if st.session_state.pending_machine_delete == machine_id:
         st.warning(
@@ -1077,115 +1048,6 @@ with action_4:
         label="Open Components",
         use_container_width=True,
     )
-
-
-# =========================================================
-# OPEN OR DELETE RECORDS
-# =========================================================
-
-st.html('<div class="section-heading">Manage Saved Records</div>')
-
-with st.expander("⋮ Open or delete a saved record"):
-    if not database_connected:
-        st.error("Connect ABAYO to Supabase to manage saved records.")
-    else:
-        record_type = st.selectbox(
-            "Record type",
-            list(RECORD_TABLES),
-            key="manage_record_type",
-        )
-
-        selected_table = RECORD_TABLES[record_type]
-        saved_records = load_table(selected_table)
-
-        if not saved_records:
-            st.info(f"No {record_type.lower()} found.")
-        else:
-            selectable_records = [
-                record
-                for record in saved_records
-                if record.get("id") is not None
-            ]
-
-            if not selectable_records:
-                st.error(
-                    f"{record_type} were found, but they do not have "
-                    "an ID column that ABAYO can delete safely."
-                )
-            else:
-                record_by_id = {
-                    str(record["id"]): record
-                    for record in selectable_records
-                }
-
-                selected_record_id = st.selectbox(
-                    f"Select {record_type.lower()}",
-                    list(record_by_id),
-                    format_func=lambda item_id: (
-                        record_name(record_by_id[item_id])
-                    ),
-                    key=f"manage_selector_{selected_table}",
-                )
-
-                selected_record = record_by_id[selected_record_id]
-                selected_record_name = record_name(selected_record)
-
-                action = st.radio(
-                    "Options",
-                    ("1. Open", "2. Delete"),
-                    horizontal=True,
-                    key=f"record_action_{selected_table}_"
-                    f"{selected_record_id}",
-                )
-
-                if action == "1. Open":
-                    st.subheader(selected_record_name)
-
-                    visible_record = {
-                        str(key).replace("_", " ").title(): value
-                        for key, value in selected_record.items()
-                        if key not in {"id", "machine_id"}
-                    }
-
-                    if visible_record:
-                        st.json(visible_record, expanded=True)
-                    else:
-                        st.info("This record has no additional details.")
-
-                else:
-                    st.warning(
-                        f"Delete **{selected_record_name}** permanently?"
-                    )
-
-                    confirm_delete = st.checkbox(
-                        "Yes, I understand this cannot be undone.",
-                        key=f"confirm_delete_{selected_table}_"
-                        f"{selected_record_id}",
-                    )
-
-                    if st.button(
-                        f"🗑️ Delete {selected_record_name}",
-                        type="primary",
-                        use_container_width=True,
-                        disabled=not confirm_delete,
-                        key=f"delete_{selected_table}_"
-                        f"{selected_record_id}",
-                    ):
-                        try:
-                            delete_record(
-                                selected_table,
-                                selected_record["id"],
-                            )
-                            st.success(
-                                f"{selected_record_name} was deleted "
-                                "successfully."
-                            )
-                            st.rerun()
-                        except Exception as error:
-                            st.error(
-                                f"Unable to delete "
-                                f"{selected_record_name}: {error}"
-                            )
 
 
 # =========================================================
