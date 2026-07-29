@@ -1,3 +1,4 @@
+import json
 import sys
 from pathlib import Path
 from typing import Any
@@ -59,6 +60,8 @@ STATIONS = [
     "Pneumatic system",
 ]
 
+FAULTS_FILE = PROJECT_ROOT / "knowledge" / "faults.json"
+
 
 # ---------------------------------------------------------
 # HELPER FUNCTIONS
@@ -90,6 +93,51 @@ def safe_list(value: Any) -> list[str]:
         ]
 
     return [str(value)]
+
+
+def load_saved_faults() -> list[dict[str, Any]]:
+    """Load the editable fault records from the local knowledge file."""
+
+    try:
+        with FAULTS_FILE.open("r", encoding="utf-8") as file:
+            data = json.load(file)
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        return []
+
+    if not isinstance(data, list):
+        return []
+
+    return [
+        record
+        for record in data
+        if isinstance(record, dict)
+    ]
+
+
+def delete_saved_fault(record_index: int) -> None:
+    """Delete one fault from faults.json while preserving other records."""
+
+    faults = load_saved_faults()
+
+    if not 0 <= record_index < len(faults):
+        raise IndexError("The selected fault no longer exists.")
+
+    faults.pop(record_index)
+    FAULTS_FILE.parent.mkdir(parents=True, exist_ok=True)
+
+    with FAULTS_FILE.open("w", encoding="utf-8") as file:
+        json.dump(faults, file, indent=4, ensure_ascii=False)
+
+
+def saved_fault_name(record: dict[str, Any], number: int) -> str:
+    """Return the most readable available fault name."""
+
+    return str(
+        record.get("fault")
+        or record.get("fault_name")
+        or record.get("title")
+        or f"Fault {number}"
+    )
 
 
 def get_diagnosis_causes(
@@ -244,10 +292,11 @@ st.warning(
 # PAGE TABS
 # ---------------------------------------------------------
 
-diagnosis_tab, teach_tab = st.tabs(
+diagnosis_tab, teach_tab, saved_faults_tab = st.tabs(
     [
         "🔍 Diagnose Fault",
         "➕ Add Fault Knowledge",
+        "📚 Saved Faults",
     ]
 )
 
@@ -934,6 +983,139 @@ with teach_tab:
                 st.exception(
                     error
                 )
+
+
+# =========================================================
+# SAVED FAULTS TAB
+# =========================================================
+
+with saved_faults_tab:
+    st.write("## Saved Fault Knowledge")
+    st.caption(
+        "Use the menu beside a fault to open it or delete it."
+    )
+
+    saved_faults = load_saved_faults()
+
+    if not saved_faults:
+        st.info("No saved faults found.")
+
+    else:
+        for fault_index, saved_fault in enumerate(saved_faults):
+            fault_name = saved_fault_name(
+                saved_fault,
+                fault_index + 1,
+            )
+
+            item_column, menu_column = st.columns([8, 1])
+
+            with item_column:
+                st.markdown(f"**{fault_name}**")
+                st.caption(
+                    str(
+                        saved_fault.get("station")
+                        or "Station not recorded"
+                    )
+                )
+
+            with menu_column:
+                with st.popover(
+                    "⋮",
+                    help=f"Options for {fault_name}",
+                    use_container_width=True,
+                ):
+                    if st.button(
+                        "Open",
+                        key=f"open_saved_fault_{fault_index}",
+                        use_container_width=True,
+                    ):
+                        st.session_state.open_saved_fault_index = (
+                            fault_index
+                        )
+                        st.session_state.pending_fault_delete_index = (
+                            None
+                        )
+                        st.rerun()
+
+                    if st.button(
+                        "Delete",
+                        key=f"delete_saved_fault_{fault_index}",
+                        use_container_width=True,
+                    ):
+                        st.session_state.pending_fault_delete_index = (
+                            fault_index
+                        )
+                        st.session_state.open_saved_fault_index = None
+                        st.rerun()
+
+            if (
+                st.session_state.get("open_saved_fault_index")
+                == fault_index
+            ):
+                visible_fault = {
+                    str(key).replace("_", " ").title(): value
+                    for key, value in saved_fault.items()
+                }
+
+                with st.container(border=True):
+                    st.subheader(fault_name)
+                    st.json(visible_fault, expanded=True)
+
+                    if st.button(
+                        "Close",
+                        key=f"close_saved_fault_{fault_index}",
+                    ):
+                        st.session_state.open_saved_fault_index = None
+                        st.rerun()
+
+            if (
+                st.session_state.get("pending_fault_delete_index")
+                == fault_index
+            ):
+                with st.container(border=True):
+                    st.warning(
+                        f'Delete "{fault_name}" permanently?'
+                    )
+
+                    confirm_delete = st.checkbox(
+                        "Yes, delete this fault.",
+                        key=f"confirm_saved_fault_{fault_index}",
+                    )
+
+                    confirm_column, cancel_column = st.columns(2)
+
+                    with confirm_column:
+                        if st.button(
+                            "Delete permanently",
+                            type="primary",
+                            disabled=not confirm_delete,
+                            key=f"confirm_delete_saved_fault_{fault_index}",
+                            use_container_width=True,
+                        ):
+                            try:
+                                delete_saved_fault(fault_index)
+                                st.session_state.pending_fault_delete_index = (
+                                    None
+                                )
+                                st.success(
+                                    f"{fault_name} was deleted."
+                                )
+                                st.rerun()
+                            except Exception as error:
+                                st.error(
+                                    f"Unable to delete fault: {error}"
+                                )
+
+                    with cancel_column:
+                        if st.button(
+                            "Cancel",
+                            key=f"cancel_delete_saved_fault_{fault_index}",
+                            use_container_width=True,
+                        ):
+                            st.session_state.pending_fault_delete_index = None
+                            st.rerun()
+
+            st.divider()
 
 
 st.divider()
