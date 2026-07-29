@@ -133,11 +133,38 @@ def saved_fault_name(record: dict[str, Any], number: int) -> str:
     """Return the most readable available fault name."""
 
     return str(
-        record.get("fault")
-        or record.get("fault_name")
-        or record.get("title")
+        get_record_value(
+            record,
+            "fault",
+            "fault_name",
+            "title",
+        )
         or f"Fault {number}"
     )
+
+
+def get_record_value(
+    record: dict[str, Any],
+    *field_names: str,
+) -> Any:
+    """Read a field regardless of spaces, underscores, or letter case."""
+
+    normalized_record = {
+        str(key).strip().lower().replace(" ", "_"): value
+        for key, value in record.items()
+    }
+
+    for field_name in field_names:
+        normalized_name = (
+            field_name.strip().lower().replace(" ", "_")
+        )
+
+        value = normalized_record.get(normalized_name)
+
+        if value not in (None, "", []):
+            return value
+
+    return None
 
 
 def get_diagnosis_causes(
@@ -1052,14 +1079,63 @@ with saved_faults_tab:
                 st.session_state.get("open_saved_fault_index")
                 == fault_index
             ):
-                visible_fault = {
-                    str(key).replace("_", " ").title(): value
-                    for key, value in saved_fault.items()
-                }
-
                 with st.container(border=True):
                     st.subheader(fault_name)
-                    st.json(visible_fault, expanded=True)
+
+                    station_name = get_record_value(
+                        saved_fault,
+                        "station",
+                    )
+                    possible_causes = safe_list(
+                        get_record_value(
+                            saved_fault,
+                            "possible_causes",
+                            "causes",
+                            "cause",
+                        )
+                    )
+                    recommended_checks = safe_list(
+                        get_record_value(
+                            saved_fault,
+                            "recommended_checks",
+                            "checks",
+                            "corrective_actions",
+                            "actions",
+                        )
+                    )
+
+                    st.markdown("#### Machine station")
+                    st.write(
+                        station_name or "Not recorded"
+                    )
+
+                    st.markdown("#### Possible causes")
+
+                    if possible_causes:
+                        for cause_number, cause in enumerate(
+                            possible_causes,
+                            start=1,
+                        ):
+                            st.write(
+                                f"{cause_number}. {cause}"
+                            )
+                    else:
+                        st.info("No possible causes recorded.")
+
+                    st.markdown(
+                        "#### Recommended checks or corrective actions"
+                    )
+
+                    if recommended_checks:
+                        for check_number, check in enumerate(
+                            recommended_checks,
+                            start=1,
+                        ):
+                            st.write(
+                                f"{check_number}. {check}"
+                            )
+                    else:
+                        st.info("No recommended checks recorded.")
 
                     if st.button(
                         "Close",
