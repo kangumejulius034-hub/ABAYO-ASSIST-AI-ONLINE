@@ -1098,7 +1098,7 @@ with saved_faults_tab:
                         st.rerun()
 
                     if st.button(
-                        "Delete",
+                        "🗑️ Delete",
                         key=f"delete_saved_fault_{fault_index}",
                         use_container_width=True,
                     ):
@@ -1195,7 +1195,7 @@ with saved_faults_tab:
 
                     with confirm_column:
                         if st.button(
-                            "Move to Recycle Bin",
+                            "🗑️ Move to Recycle Bin",
                             type="primary",
                             disabled=not confirm_delete,
                             key=f"confirm_delete_saved_fault_{fault_index}",
