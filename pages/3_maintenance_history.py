@@ -1,5 +1,7 @@
+import json
 import re
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 import streamlit as st
@@ -21,6 +23,7 @@ from maintenance_engine import (
     get_maintenance_record,
     list_record_numbers,
     load_maintenance_records,
+    save_all_maintenance_records,
 )
 
 from recipe_engine import list_recipe_names
@@ -74,6 +77,68 @@ MAINTENANCE_IMAGE_ROOT = (
     / "knowledge"
     / "maintenance_images"
 )
+
+RECYCLED_MAINTENANCE_FILE = (
+    PROJECT_ROOT
+    / "knowledge"
+    / "recycle_bin_maintenance.json"
+)
+
+
+def move_maintenance_to_recycle_bin(
+    record_number: str,
+) -> None:
+    """Move one maintenance event into recoverable local storage."""
+
+    records = load_maintenance_records()
+    removed_record = None
+
+    for record_index, record in enumerate(records):
+        if str(record.get("record_number", "")) == str(
+            record_number
+        ):
+            removed_record = records.pop(record_index)
+            break
+
+    if removed_record is None:
+        raise ValueError(
+            "The selected maintenance record could not be found."
+        )
+
+    removed_record["_deleted_at"] = datetime.now(
+        timezone.utc
+    ).isoformat()
+    removed_record["_deleted_from"] = "maintenance"
+
+    try:
+        with RECYCLED_MAINTENANCE_FILE.open(
+            "r",
+            encoding="utf-8",
+        ) as file:
+            recycled_records = json.load(file)
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        recycled_records = []
+
+    if not isinstance(recycled_records, list):
+        recycled_records = []
+
+    recycled_records.append(removed_record)
+    save_all_maintenance_records(records)
+    RECYCLED_MAINTENANCE_FILE.parent.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    with RECYCLED_MAINTENANCE_FILE.open(
+        "w",
+        encoding="utf-8",
+    ) as file:
+        json.dump(
+            recycled_records,
+            file,
+            indent=4,
+            ensure_ascii=False,
+        )
 
 
 def safe_folder_name(text: str) -> str:
@@ -654,10 +719,6 @@ with tab1:
                                 updated_paths
                             )
 
-                    from maintenance_engine import (
-                        save_all_maintenance_records,
-                    )
-
                     save_all_maintenance_records(
                         all_records
                     )
@@ -778,18 +839,130 @@ with tab2:
     )
 
     if filtered_records:
-        for record in filtered_records:
+        for record_index, record in enumerate(filtered_records):
+            record_number = str(
+                record.get("record_number")
+                or f"Record {record_index + 1}"
+            )
+            fault_name = str(
+                record.get("fault")
+                or "Unnamed fault"
+            )
             expander_title = (
-                f"{record.get('record_number', '')} — "
-                f"{record.get('fault', 'Unnamed fault')}"
+                f"{record_number} — {fault_name}"
             )
 
-            with st.expander(
-                expander_title
-            ):
-                display_maintenance_record(
-                    record
+            item_column, menu_column = st.columns([8, 1])
+
+            with item_column:
+                st.markdown(f"**{expander_title}**")
+                st.caption(
+                    str(
+                        record.get("station")
+                        or "Station not recorded"
+                    )
                 )
+
+            with menu_column:
+                with st.popover(
+                    "⋮",
+                    help=f"Options for {record_number}",
+                    use_container_width=True,
+                ):
+                    if st.button(
+                        "Open",
+                        key=f"open_maintenance_{record_index}",
+                        use_container_width=True,
+                    ):
+                        st.session_state.open_maintenance_record = (
+                            record_number
+                        )
+                        st.session_state.pending_maintenance_delete = (
+                            None
+                        )
+                        st.rerun()
+
+                    if st.button(
+                        "🗑️ Delete",
+                        key=f"delete_maintenance_{record_index}",
+                        use_container_width=True,
+                    ):
+                        st.session_state.pending_maintenance_delete = (
+                            record_number
+                        )
+                        st.session_state.open_maintenance_record = None
+                        st.rerun()
+
+            if (
+                st.session_state.get("open_maintenance_record")
+                == record_number
+            ):
+                with st.container(border=True):
+                    display_maintenance_record(record)
+
+                    if st.button(
+                        "Close",
+                        key=f"close_maintenance_{record_index}",
+                    ):
+                        st.session_state.open_maintenance_record = None
+                        st.rerun()
+
+            if (
+                st.session_state.get("pending_maintenance_delete")
+                == record_number
+            ):
+                with st.container(border=True):
+                    st.warning(
+                        f'Move "{record_number}" to the Recycle Bin?'
+                    )
+
+                    confirm_delete = st.checkbox(
+                        "Yes, move this maintenance record "
+                        "to the Recycle Bin.",
+                        key=f"confirm_maintenance_{record_index}",
+                    )
+
+                    confirm_column, cancel_column = st.columns(2)
+
+                    with confirm_column:
+                        if st.button(
+                            "🗑️ Move to Recycle Bin",
+                            type="primary",
+                            disabled=not confirm_delete,
+                            key=(
+                                "confirm_move_maintenance_"
+                                f"{record_index}"
+                            ),
+                            use_container_width=True,
+                        ):
+                            try:
+                                move_maintenance_to_recycle_bin(
+                                    record_number
+                                )
+                                st.session_state.pending_maintenance_delete = (
+                                    None
+                                )
+                                st.success(
+                                    f"{record_number} was moved to "
+                                    "the Recycle Bin."
+                                )
+                                st.rerun()
+                            except Exception as error:
+                                st.error(
+                                    "Unable to move maintenance "
+                                    f"record: {error}"
+                                )
+
+                    with cancel_column:
+                        if st.button(
+                            "Cancel",
+                            key=f"cancel_maintenance_{record_index}",
+                            use_container_width=True,
+                        ):
+                            st.session_state.pending_maintenance_delete = None
+                            st.rerun()
+
+            st.divider()
 
     else:
         st.warning(
