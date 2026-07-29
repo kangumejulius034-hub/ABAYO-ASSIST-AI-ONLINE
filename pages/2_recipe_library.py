@@ -1,6 +1,7 @@
+import json
 import re
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -46,6 +47,167 @@ IMAGE_ROOT = (
     / "knowledge"
     / "recipe_images"
 )
+
+RECIPES_FILE = PROJECT_ROOT / "knowledge" / "recipes.json"
+RECYCLED_RECIPES_FILE = (
+    PROJECT_ROOT / "knowledge" / "recycle_bin_recipes.json"
+)
+
+
+def load_json_file(file_path: Path, default: Any) -> Any:
+    """Load a local JSON file without breaking the app on bad data."""
+
+    try:
+        with file_path.open("r", encoding="utf-8") as file:
+            return json.load(file)
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        return default
+
+
+def save_json_file(file_path: Path, data: Any) -> None:
+    """Save formatted JSON while preserving Unicode text."""
+
+    file_path.parent.mkdir(parents=True, exist_ok=True)
+
+    with file_path.open("w", encoding="utf-8") as file:
+        json.dump(data, file, indent=4, ensure_ascii=False)
+
+
+def recipe_matches(
+    record: dict[str, Any],
+    machine_model: str,
+    recipe_name: str,
+) -> bool:
+    """Check whether a stored dictionary is the selected recipe."""
+
+    stored_name = str(
+        record.get("recipe_name")
+        or record.get("name")
+        or ""
+    )
+    stored_machine = str(
+        record.get("machine_model")
+        or record.get("machine")
+        or machine_model
+    )
+
+    return (
+        stored_name == recipe_name
+        and stored_machine == machine_model
+    )
+
+
+def remove_recipe_from_data(
+    data: Any,
+    machine_model: str,
+    recipe_name: str,
+) -> dict[str, Any] | None:
+    """Find and remove a recipe from common recipes.json structures."""
+
+    if isinstance(data, list):
+        for index, item in enumerate(data):
+            if (
+                isinstance(item, dict)
+                and recipe_matches(
+                    item,
+                    machine_model,
+                    recipe_name,
+                )
+            ):
+                return data.pop(index)
+
+        return None
+
+    if not isinstance(data, dict):
+        return None
+
+    direct_recipe = data.get(recipe_name)
+
+    if isinstance(direct_recipe, dict):
+        removed = data.pop(recipe_name)
+        removed.setdefault("recipe_name", recipe_name)
+        removed.setdefault("machine_model", machine_model)
+        return removed
+
+    machine_data = data.get(machine_model)
+
+    if isinstance(machine_data, list):
+        removed = remove_recipe_from_data(
+            machine_data,
+            machine_model,
+            recipe_name,
+        )
+
+        if removed is not None:
+            return removed
+
+    elif isinstance(machine_data, dict):
+        direct_machine_recipe = machine_data.get(recipe_name)
+
+        if isinstance(direct_machine_recipe, dict):
+            removed = machine_data.pop(recipe_name)
+            removed.setdefault("recipe_name", recipe_name)
+            removed.setdefault("machine_model", machine_model)
+            return removed
+
+        nested_machine_recipes = machine_data.get("recipes")
+
+        if isinstance(nested_machine_recipes, (list, dict)):
+            removed = remove_recipe_from_data(
+                nested_machine_recipes,
+                machine_model,
+                recipe_name,
+            )
+
+            if removed is not None:
+                return removed
+
+    nested_recipes = data.get("recipes")
+
+    if isinstance(nested_recipes, (list, dict)):
+        return remove_recipe_from_data(
+            nested_recipes,
+            machine_model,
+            recipe_name,
+        )
+
+    return None
+
+
+def move_recipe_to_recycle_bin(
+    machine_model: str,
+    recipe_name: str,
+) -> None:
+    """Move a recipe out of the active library into recoverable storage."""
+
+    recipes_data = load_json_file(RECIPES_FILE, [])
+    recycled_recipe = remove_recipe_from_data(
+        recipes_data,
+        machine_model,
+        recipe_name,
+    )
+
+    if recycled_recipe is None:
+        raise ValueError(
+            "The selected recipe could not be found in recipes.json."
+        )
+
+    recycled_recipe["_deleted_at"] = datetime.now(
+        timezone.utc
+    ).isoformat()
+    recycled_recipe["_deleted_from"] = "recipes"
+
+    recycled_recipes = load_json_file(
+        RECYCLED_RECIPES_FILE,
+        [],
+    )
+
+    if not isinstance(recycled_recipes, list):
+        recycled_recipes = []
+
+    recycled_recipes.append(recycled_recipe)
+    save_json_file(RECIPES_FILE, recipes_data)
+    save_json_file(RECYCLED_RECIPES_FILE, recycled_recipes)
 
 
 def parse_parameters(
@@ -798,11 +960,43 @@ with tab1:
     )
 
     if recipe_names:
-        selected_recipe = st.selectbox(
-            "Select recipe",
-            recipe_names,
-            key="view_recipe",
-        )
+        selector_column, menu_column = st.columns([8, 1])
+
+        with selector_column:
+            selected_recipe = st.selectbox(
+                "Select recipe",
+                recipe_names,
+                key="view_recipe",
+            )
+
+        with menu_column:
+            st.write("")
+
+            with st.popover(
+                "⋮",
+                help=f"Options for {selected_recipe}",
+                use_container_width=True,
+            ):
+                if st.button(
+                    "Open",
+                    key=f"open_recipe_{selected_recipe}",
+                    use_container_width=True,
+                ):
+                    st.session_state.open_recipe_name = (
+                        selected_recipe
+                    )
+                    st.session_state.pending_recipe_delete = None
+                    st.rerun()
+
+                if st.button(
+                    "🗑️ Delete",
+                    key=f"delete_recipe_{selected_recipe}",
+                    use_container_width=True,
+                ):
+                    st.session_state.pending_recipe_delete = (
+                        selected_recipe
+                    )
+                    st.rerun()
 
         recipe = get_recipe(
             machine_model,
@@ -816,6 +1010,60 @@ with tab1:
             st.error(
                 "The selected recipe could not be loaded."
             )
+
+        if (
+            st.session_state.get("pending_recipe_delete")
+            == selected_recipe
+        ):
+            with st.container(border=True):
+                st.warning(
+                    f'Move "{selected_recipe}" to the Recycle Bin?'
+                )
+
+                confirm_recipe_delete = st.checkbox(
+                    "Yes, move this recipe to the Recycle Bin.",
+                    key=f"confirm_recipe_delete_{selected_recipe}",
+                )
+
+                confirm_column, cancel_column = st.columns(2)
+
+                with confirm_column:
+                    if st.button(
+                        "🗑️ Move to Recycle Bin",
+                        type="primary",
+                        disabled=not confirm_recipe_delete,
+                        key=(
+                            "confirm_move_recipe_"
+                            f"{selected_recipe}"
+                        ),
+                        use_container_width=True,
+                    ):
+                        try:
+                            move_recipe_to_recycle_bin(
+                                machine_model,
+                                selected_recipe,
+                            )
+                            st.session_state.pending_recipe_delete = (
+                                None
+                            )
+                            st.success(
+                                f"{selected_recipe} was moved to "
+                                "the Recycle Bin."
+                            )
+                            st.rerun()
+                        except Exception as error:
+                            st.error(
+                                f"Unable to move recipe: {error}"
+                            )
+
+                with cancel_column:
+                    if st.button(
+                        "Cancel",
+                        key=f"cancel_recipe_delete_{selected_recipe}",
+                        use_container_width=True,
+                    ):
+                        st.session_state.pending_recipe_delete = None
+                        st.rerun()
 
     else:
         st.warning(
