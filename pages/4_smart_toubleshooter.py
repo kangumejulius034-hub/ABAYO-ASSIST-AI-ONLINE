@@ -46,6 +46,28 @@ st.set_page_config(
     layout="wide",
 )
 
+st.html(
+    """
+    <style>
+    [data-testid="stSidebarCollapsedControl"] {
+        visibility: visible !important; display: flex !important;
+        opacity: 1 !important; position: fixed !important;
+        top: .75rem !important; left: .75rem !important;
+        z-index: 999999 !important; background: #071426 !important;
+        border-radius: 50% !important;
+        box-shadow: 0 4px 12px rgba(0,0,0,.22) !important;
+    }
+    [data-testid="stSidebarCollapsedControl"] button,
+    [data-testid="stSidebarCollapsedControl"] svg,
+    [data-testid="stSidebarCollapseButton"] button,
+    [data-testid="stSidebarCollapseButton"] svg {
+        color: white !important; fill: white !important;
+        stroke: white !important; opacity: 1 !important;
+    }
+    </style>
+    """
+)
+
 
 # ---------------------------------------------------------
 # CONSTANTS
@@ -489,6 +511,12 @@ def display_troubleshooting_solution(record: dict) -> None:
 # ---------------------------------------------------------
 # PAGE HEADER
 # ---------------------------------------------------------
+
+if st.button(
+    "🏠 ← MAIN MENU",
+    key="troubleshooter_main_menu_button",
+):
+    st.switch_page("app.py")
 
 st.title("🧠 Smart Troubleshooter")
 

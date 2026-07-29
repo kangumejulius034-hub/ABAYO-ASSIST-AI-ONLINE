@@ -63,6 +63,29 @@ st.html(
         background: var(--background);
     }
 
+    [data-testid="stSidebarCollapsedControl"] {
+        visibility: visible !important;
+        display: flex !important;
+        opacity: 1 !important;
+        position: fixed !important;
+        top: 0.75rem !important;
+        left: 0.75rem !important;
+        z-index: 999999 !important;
+        background: var(--navy) !important;
+        border-radius: 50% !important;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.22) !important;
+    }
+
+    [data-testid="stSidebarCollapsedControl"] button,
+    [data-testid="stSidebarCollapsedControl"] svg,
+    [data-testid="stSidebarCollapseButton"] button,
+    [data-testid="stSidebarCollapseButton"] svg {
+        color: white !important;
+        fill: white !important;
+        stroke: white !important;
+        opacity: 1 !important;
+    }
+
     .block-container {
         max-width: 1250px;
         padding-top: 2rem;
@@ -570,6 +593,11 @@ with st.sidebar:
 
     st.caption("System Version 0.6")
 
+if st.button(
+    "🏠 ← MAIN MENU",
+    key="recycle_bin_main_menu_button",
+):
+    st.switch_page("app.py")
 
 st.html(
     f"""
