@@ -113,6 +113,12 @@ st.html(
         background: transparent;
     }
 
+    [data-testid="stToolbar"],
+    [data-testid="stDecoration"],
+    [data-testid="stStatusWidget"] {
+        display: none !important;
+    }
+
     /* Typography */
     .page-heading {
         font-size: 31px;
@@ -388,6 +394,50 @@ faults = load_table("faults")
 maintenance_records = load_table("maintenance_history")
 
 
+def load_app_settings() -> dict:
+    """Load editable ABAYO display and machine-default settings."""
+
+    default_settings = {
+        "display_name": "Kangume Julius",
+        "job_title": "Administrator",
+        "company_name": "",
+        "welcome_title": "Welcome back",
+        "welcome_subtitle": (
+            "Monitor machines, diagnose faults "
+            "and preserve operational knowledge."
+        ),
+        "support_email": "",
+        "default_machine_location": "",
+        "default_machine_status": "Online",
+    }
+
+    if not database_connected:
+        return default_settings
+
+    try:
+        response = (
+            supabase.table("app_settings")
+            .select("*")
+            .eq("id", "global")
+            .limit(1)
+            .execute()
+        )
+
+        if response.data:
+            return {
+                **default_settings,
+                **response.data[0],
+            }
+    except Exception:
+        # Keep the dashboard usable before the app_settings table is created.
+        pass
+
+    return default_settings
+
+
+app_settings = load_app_settings()
+
+
 # =========================================================
 # SESSION STATE
 # =========================================================
@@ -490,6 +540,13 @@ with st.sidebar:
         use_container_width=True,
     )
 
+    st.page_link(
+        "pages/7_settings.py",
+        label="Settings",
+        icon="⚙️",
+        use_container_width=True,
+    )
+
     st.markdown("---")
     st.markdown("#### ABAYO ASSISTANT")
     st.markdown("🤖 **AI Assistant**")
@@ -509,13 +566,28 @@ with st.sidebar:
 # HEADER
 # =========================================================
 
+display_name = escape(
+    str(app_settings.get("display_name") or "ABAYO User")
+)
+
+welcome_title = escape(
+    str(app_settings.get("welcome_title") or "Welcome back")
+)
+
+welcome_subtitle = escape(
+    str(
+        app_settings.get("welcome_subtitle")
+        or "Monitor machines and preserve operational knowledge."
+    )
+)
+
 st.html(
-    """
+    f"""
     <div class="page-heading">
-        Welcome back, Kangume Julius 👋
+        {welcome_title}, {display_name} 👋
     </div>
     <div class="page-subtitle">
-        Monitor machines, diagnose faults and preserve operational knowledge.
+        {welcome_subtitle}
     </div>
     """
 )
@@ -885,11 +957,34 @@ if st.session_state.show_add_machine:
             new_model = st.text_input("Model")
 
         with right:
-            new_location = st.text_input("Location")
+            default_location = str(
+                app_settings.get("default_machine_location") or ""
+            )
+
+            status_options = [
+                "Online",
+                "Offline",
+                "Maintenance",
+            ]
+
+            default_status = str(
+                app_settings.get("default_machine_status") or "Online"
+            )
+
+            if default_status not in status_options:
+                default_status = "Online"
+
+            new_location = st.text_input(
+                "Location",
+                value=default_location,
+            )
+
             new_status = st.selectbox(
                 "Status",
-                ["Online", "Offline", "Maintenance"],
+                status_options,
+                index=status_options.index(default_status),
             )
+
             new_description = st.text_area("Description")
 
         save_machine = st.form_submit_button(
