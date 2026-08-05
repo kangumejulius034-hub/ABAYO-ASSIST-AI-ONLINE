@@ -80,6 +80,416 @@ CATEGORIES = [
 ]
 
 
+# =========================================================
+# PAKONA PFS — CONFIRMED COMPONENT REFERENCE
+# =========================================================
+#
+# These records are intentionally kept separate from user-created component
+# records.  They are based on the machine photographs, operating video and
+# observations documented for ABAYO.  Unknown OEM specifications are left as
+# "Not recorded" until a nameplate, manual or electrical/pneumatic drawing
+# confirms them.
+
+STATION_DISPLAY_NAMES = {
+    "Pouch elevator": "Pouch Elevator / Main Pouch Conveyor",
+    "Pouch picking station": "Pouch Picking Station",
+}
+
+
+PAKONA_REFERENCE_COMPONENTS = [
+    {
+        "component_number": "PFS-FEED-001",
+        "component_name": "Green pouch conveyor belt / tracks",
+        "station": "Pouch elevator",
+        "category": "Mechanical",
+        "function": (
+            "Carries flat pouches forward in an overlapping (shingled) "
+            "stream and presents them toward the pickup point. The conveyor "
+            "supplies the pouch; it does not perform the vacuum pickup."
+        ),
+        "manufacturer": "Not recorded",
+        "model_number": "Not recorded",
+        "part_number": "Not recorded",
+        "common_failures": (
+            "Recorded operating problems include under-feeding, over-feeding "
+            "and more than one pouch sliding into the pickup area. Belt "
+            "tracking, condition and adjustment should be checked before "
+            "assigning a mechanical cause."
+        ),
+        "fault_symptoms": (
+            "Next pouch does not reach the pickup point, pouch travels past "
+            "the intended presentation point, or multiple pouches crowd the "
+            "pickup area."
+        ),
+        "inspection_procedure": (
+            "With hands clear of moving parts, observe pouch overlap and "
+            "tracking during controlled operation. When the machine is safely "
+            "stopped and isolated, inspect belt condition, alignment and the "
+            "pouch path for contamination or obstruction."
+        ),
+        "replacement_procedure": "Not yet documented — follow the Pakona OEM procedure.",
+        "safety_notes": (
+            "Never reach into the moving pouch conveyor. Isolate the machine "
+            "before touching, cleaning or mechanically adjusting the belt."
+        ),
+        "related_faults": [
+            "Pouch not presented to pickup",
+            "Pouch passes presentation point",
+            "Multiple pouches at pickup",
+        ],
+        "verification_status": "Observed on machine",
+        "evidence_note": "Project photographs and operating video; 500 g pouch run used as a visual reference.",
+    },
+    {
+        "component_number": "PFS-FEED-002",
+        "component_name": "Stainless-steel pouch guide rails",
+        "station": "Pouch elevator",
+        "category": "Mechanical",
+        "function": (
+            "Keeps the flat pouches laterally guided as the conveyor carries "
+            "them toward the presentation and pickup area."
+        ),
+        "manufacturer": "Not recorded",
+        "model_number": "Not recorded",
+        "part_number": "Not recorded",
+        "common_failures": (
+            "Possible issues to verify include loose or incorrect guide "
+            "adjustment, pouch-edge rubbing and uneven presentation."
+        ),
+        "fault_symptoms": (
+            "Pouches approach the pickup point off-centre, rub against a rail "
+            "or no longer form a consistent overlapping stream."
+        ),
+        "inspection_procedure": (
+            "After safe isolation, check that both guides are secure, clear "
+            "of product/debris and positioned consistently for the active "
+            "pouch size. Compare both sides before changing an adjustment."
+        ),
+        "replacement_procedure": "Not yet documented — follow the Pakona OEM procedure.",
+        "safety_notes": "Stop and isolate the machine before loosening or repositioning guides.",
+        "related_faults": [
+            "Pouch misaligned at pickup",
+            "Multiple pouches at pickup",
+        ],
+        "verification_status": "Observed on machine",
+        "evidence_note": "Clearly visible in the main pouch conveyor operating video.",
+    },
+    {
+        "component_number": "PFS-FEED-003",
+        "component_name": "Pouch presentation sensor",
+        "station": "Pouch elevator",
+        "category": "Sensor",
+        "function": (
+            "Detects pouch presence/position at the feed presentation area "
+            "for the conveyor control sequence. Exact PLC logic still needs "
+            "to be confirmed from the electrical/PLC documentation."
+        ),
+        "manufacturer": "Omron",
+        "model_number": "Not recorded",
+        "part_number": "Not recorded",
+        "common_failures": (
+            "The sensing position has been observed to require readjustment. "
+            "Possible checks include bracket movement, sensor alignment, "
+            "contamination and sensing-distance setting."
+        ),
+        "fault_symptoms": (
+            "Conveyor stops before the pouch reaches the correct point, "
+            "continues feeding past the point, or the sensing distance appears "
+            "different from the previously working position."
+        ),
+        "inspection_procedure": (
+            "First note the working position before changing anything. Check "
+            "the sensor indicator, mounting security, target alignment and "
+            "sensor face. Confirm the PLC/HMI input where available. Only "
+            "change sensing distance after the mechanical position is checked."
+        ),
+        "replacement_procedure": "Model and wiring details must be confirmed before replacement.",
+        "safety_notes": (
+            "Use authorised electrical isolation for wiring work. Do not "
+            "adjust the sensor while reaching into a moving mechanism."
+        ),
+        "related_faults": [
+            "Pouch not presented to pickup",
+            "Pouch passes presentation point",
+            "Sensor distance appears to drift",
+        ],
+        "verification_status": "User-confirmed manufacturer",
+        "evidence_note": "Omron brand and the recurring presentation/sensing-distance behaviour were documented during operation.",
+    },
+    {
+        "component_number": "PFS-FEED-004",
+        "component_name": "Adjustable pouch guides / stops at pickup point",
+        "station": "Pouch elevator",
+        "category": "Mechanical",
+        "function": (
+            "Helps keep the leading pouch presented consistently at the end "
+            "of the feed path. Exact Pakona names for the individual guide "
+            "pieces are not yet recorded."
+        ),
+        "manufacturer": "Not recorded",
+        "model_number": "Not recorded",
+        "part_number": "Not recorded",
+        "common_failures": (
+            "Incorrect or loose adjustment can change how the leading pouch "
+            "is exposed to the pickup mechanism."
+        ),
+        "fault_symptoms": "Leading pouch is off-centre, over-exposed or inconsistently presented.",
+        "inspection_procedure": (
+            "After safe isolation, compare guide/stop positions left-to-right, "
+            "check fasteners and look for contact marks. Record the original "
+            "position before making an adjustment."
+        ),
+        "replacement_procedure": "Not yet documented — follow the Pakona OEM procedure.",
+        "safety_notes": "Isolate the machine before mechanical adjustment.",
+        "related_faults": ["Pouch misaligned at pickup"],
+        "verification_status": "Observed — OEM name pending",
+        "evidence_note": "Adjustable mechanical guides/stops are visible around the presentation/pick area in the operating footage.",
+    },
+    {
+        "component_number": "PFS-PICK-001",
+        "component_name": "Vacuum suction cups",
+        "station": "Pouch picking station",
+        "category": "Vacuum",
+        "function": (
+            "Contacts the presented pouch, uses vacuum to hold it and carries "
+            "it with the pickup mechanism through the transfer movement."
+        ),
+        "manufacturer": "Not recorded",
+        "model_number": "Not recorded",
+        "part_number": "Not recorded",
+        "common_failures": (
+            "Cup wear, dirt/product contamination, poor contact, vacuum loss "
+            "or misalignment can reduce reliable pickup."
+        ),
+        "fault_symptoms": (
+            "Pouch is missed, lifts only partly, is picked inconsistently or "
+            "drops during transfer."
+        ),
+        "inspection_procedure": (
+            "With the machine isolated, inspect each cup for cracks, hardening, "
+            "contamination and uneven height. Check vacuum connections. During "
+            "controlled testing, confirm that cups contact the pouch squarely."
+        ),
+        "replacement_procedure": "Cup size/material and fitting must be recorded before replacement.",
+        "safety_notes": "Isolate pneumatic/vacuum and mechanical energy before touching the pickup assembly.",
+        "related_faults": [
+            "Pouch not picked",
+            "Weak suction",
+            "Pouch dropped during transfer",
+        ],
+        "verification_status": "Observed on machine",
+        "evidence_note": "Blue suction cups are clearly visible in the supplied pouch-picking footage and photographs.",
+    },
+    {
+        "component_number": "PFS-PICK-002",
+        "component_name": "Spring-loaded suction cup holders",
+        "station": "Pouch picking station",
+        "category": "Mechanical",
+        "function": (
+            "Provides compliant movement behind the suction cups so the cup "
+            "can follow the pouch surface and make consistent contact during "
+            "the pickup stroke."
+        ),
+        "manufacturer": "Not recorded",
+        "model_number": "Not recorded",
+        "part_number": "Not recorded",
+        "common_failures": (
+            "Possible issues include sticking, unequal spring travel, loose "
+            "mounting or height misalignment."
+        ),
+        "fault_symptoms": (
+            "One cup contacts before another, cup contact is weak or the "
+            "pickup face does not sit evenly on the pouch."
+        ),
+        "inspection_procedure": (
+            "After isolation, compare holder height and free movement, check "
+            "mounting security and inspect for binding or contamination."
+        ),
+        "replacement_procedure": "Not yet documented — confirm holder and spring specification first.",
+        "safety_notes": "Keep hands clear of the pickup stroke and stored spring/mechanical movement.",
+        "related_faults": ["Pouch not picked", "Uneven suction-cup contact"],
+        "verification_status": "Observed on machine",
+        "evidence_note": "Spring-loaded pickup components are visible in the close operating footage.",
+    },
+    {
+        "component_number": "PFS-PICK-003",
+        "component_name": "Pouch-picking arm / vacuum pickup assembly",
+        "station": "Pouch picking station",
+        "category": "Mechanical",
+        "function": (
+            "Carries the suction cups through the pouch pick, transfer and "
+            "return movement. The exact Pakona assembly name and drive details "
+            "have not yet been confirmed."
+        ),
+        "manufacturer": "Not recorded",
+        "model_number": "Not recorded",
+        "part_number": "Not recorded",
+        "common_failures": (
+            "Timing, alignment, looseness or restricted movement should be "
+            "checked when pouch pickup position is inconsistent."
+        ),
+        "fault_symptoms": (
+            "Suction cups arrive off-position, pickup occurs late/early or "
+            "transfer movement is not repeatable."
+        ),
+        "inspection_procedure": (
+            "Observe the full cycle from outside the guarded movement area. "
+            "After isolation, check mounting, alignment and free mechanical "
+            "movement. Record timing observations before changing settings."
+        ),
+        "replacement_procedure": "Not yet documented — assembly drive and timing must be confirmed first.",
+        "safety_notes": "This assembly moves rapidly. Stop and isolate all energy before physical inspection.",
+        "related_faults": ["Pouch not picked", "Pickup timing incorrect"],
+        "verification_status": "Observed — OEM name pending",
+        "evidence_note": "The moving vacuum pickup mechanism is visible throughout the operating footage.",
+    },
+    {
+        "component_number": "PFS-PICK-004",
+        "component_name": "Red star-shaped wheel",
+        "station": "Pouch picking station",
+        "category": "Mechanical",
+        "function": (
+            "Rotates as part of the pouch presentation/picking sequence. During "
+            "the documented machine cycle it rotates while the suction pads "
+            "are returning to pick. Its exact OEM functional description is "
+            "still to be confirmed before ABAYO states a more specific role."
+        ),
+        "manufacturer": "Not recorded",
+        "model_number": "Not recorded",
+        "part_number": "Not recorded",
+        "common_failures": (
+            "Timing, looseness, wear or obstruction are inspection points if "
+            "its motion no longer matches the known working cycle."
+        ),
+        "fault_symptoms": (
+            "Wheel does not rotate during the expected return/pick phase, "
+            "rotates irregularly or its movement is no longer synchronised "
+            "with the pickup cycle."
+        ),
+        "inspection_procedure": (
+            "First compare its timing with a known good cycle without touching "
+            "the mechanism. After isolation, inspect the wheel, shaft and "
+            "mounting for looseness, obstruction or visible wear."
+        ),
+        "replacement_procedure": "Not yet documented — confirm OEM name, dimensions and mounting first.",
+        "safety_notes": "Keep hands clear during cycling; isolate before touching the wheel or shaft.",
+        "related_faults": ["Pickup sequence timing incorrect"],
+        "verification_status": "User-observed timing; OEM function pending",
+        "evidence_note": "User identified the red star wheel and confirmed its rotation during the suction-pad return-to-pick movement.",
+    },
+    {
+        "component_number": "PFS-PICK-005",
+        "component_name": "Star-wheel drive motor",
+        "station": "Pouch picking station",
+        "category": "Motor and drive",
+        "function": "Provides drive to the red star-shaped wheel assembly.",
+        "manufacturer": "Not recorded",
+        "model_number": "Not recorded",
+        "part_number": "Not recorded",
+        "common_failures": (
+            "Electrical supply, drive command, coupling/shaft condition and "
+            "mechanical obstruction are checks when the star wheel does not "
+            "move as expected; no specific motor failure has yet been confirmed."
+        ),
+        "fault_symptoms": "Star wheel does not rotate or its movement is irregular.",
+        "inspection_procedure": (
+            "Observe commanded motion and check the relevant HMI/PLC indication "
+            "where available. Electrical measurements and mechanical drive "
+            "inspection must be performed only by authorised personnel after "
+            "the correct isolation procedure."
+        ),
+        "replacement_procedure": "Motor nameplate, rating, gearbox/ratio and wiring must be recorded before replacement.",
+        "safety_notes": "Electrical and mechanical isolation is required before motor or shaft work.",
+        "related_faults": ["Star wheel not rotating", "Pickup sequence timing incorrect"],
+        "verification_status": "Observed on machine; nameplate pending",
+        "evidence_note": "The star wheel and its motor/drive arrangement were documented in the supplied machine photographs.",
+    },
+]
+
+
+def station_display_name(station: str) -> str:
+    return STATION_DISPLAY_NAMES.get(station, station)
+
+
+def search_reference_components(
+    search_text: str = "",
+    station: str = "",
+) -> list[dict]:
+    """Search only the built-in Pakona reference records."""
+
+    query = search_text.strip().lower()
+    matches: list[dict] = []
+
+    for component in PAKONA_REFERENCE_COMPONENTS:
+        if station and component.get("station") != station:
+            continue
+
+        searchable_values = [
+            component.get("component_number", ""),
+            component.get("component_name", ""),
+            component.get("station", ""),
+            component.get("category", ""),
+            component.get("function", ""),
+            component.get("manufacturer", ""),
+            component.get("common_failures", ""),
+            component.get("fault_symptoms", ""),
+            " ".join(component.get("related_faults", [])),
+        ]
+
+        if query and query not in " ".join(
+            str(value).lower() for value in searchable_values
+        ):
+            continue
+
+        matches.append(component)
+
+    return matches
+
+
+def display_reference_component(component: dict) -> None:
+    """Render one confirmed Pakona reference component."""
+
+    station_name = station_display_name(
+        str(component.get("station", "Not recorded"))
+    )
+
+    metadata_left, metadata_right = st.columns(2)
+
+    with metadata_left:
+        st.write(f"**Station:** {station_name}")
+        st.write(f"**Category:** {component.get('category', 'Not recorded')}")
+        st.write(f"**Manufacturer:** {component.get('manufacturer', 'Not recorded')}")
+
+    with metadata_right:
+        st.write(f"**Model:** {component.get('model_number', 'Not recorded')}")
+        st.write(f"**Part number:** {component.get('part_number', 'Not recorded')}")
+        st.write(f"**Verification:** {component.get('verification_status', 'Pending')}")
+
+    st.write("#### Function")
+    st.write(component.get("function", "Not recorded"))
+
+    st.write("#### Recorded / possible failure behaviour")
+    st.write(component.get("common_failures", "Not recorded"))
+
+    st.write("#### Fault symptoms")
+    st.write(component.get("fault_symptoms", "Not recorded"))
+
+    st.write("#### Safe inspection guidance")
+    st.write(component.get("inspection_procedure", "Not recorded"))
+
+    related_faults = component.get("related_faults", [])
+    if related_faults:
+        st.write("**Related faults:** " + " • ".join(related_faults))
+
+    evidence_note = component.get("evidence_note")
+    if evidence_note:
+        st.caption(f"ABAYO evidence note: {evidence_note}")
+
+    safety_notes = component.get("safety_notes")
+    if safety_notes:
+        st.warning(f"Safety: {safety_notes}")
+
+
 IMAGE_ROOT = (
     PROJECT_ROOT
     / "knowledge"
@@ -399,13 +809,104 @@ st.info(
 )
 
 
-view_tab, add_tab, summary_tab = st.tabs(
+reference_tab, view_tab, add_tab, summary_tab = st.tabs(
     [
+        "🧭 Pakona PFS Reference",
         "🔍 View Components",
         "➕ Add Component",
         "📊 Component Summary",
     ]
 )
+
+
+with reference_tab:
+    st.write("## Pakona PFS — Component Reference")
+
+    st.info(
+        "Stage 1 covers the two assemblies documented in detail so far. "
+        "The Pouch Elevator / Main Pouch Conveyor presents the next pouch; "
+        "the Pouch Picking Station performs the vacuum pickup. They are kept "
+        "separate so operators do not confuse their components or functions."
+    )
+
+    reference_search_column, reference_station_column = st.columns([2, 1])
+
+    with reference_search_column:
+        reference_search_text = st.text_input(
+            "Search Pakona reference",
+            placeholder="Example: Omron sensor, suction cup, star wheel or guide rail",
+            key="pakona_reference_search",
+        )
+
+    with reference_station_column:
+        reference_station_label = st.selectbox(
+            "Assembly",
+            [
+                "All documented assemblies",
+                "Pouch Elevator / Main Pouch Conveyor",
+                "Pouch Picking Station",
+            ],
+            key="pakona_reference_station",
+        )
+
+    reference_station_map = {
+        "All documented assemblies": "",
+        "Pouch Elevator / Main Pouch Conveyor": "Pouch elevator",
+        "Pouch Picking Station": "Pouch picking station",
+    }
+
+    reference_results = search_reference_components(
+        search_text=reference_search_text,
+        station=reference_station_map[reference_station_label],
+    )
+
+    feed_count = sum(
+        component.get("station") == "Pouch elevator"
+        for component in PAKONA_REFERENCE_COMPONENTS
+    )
+    pick_count = sum(
+        component.get("station") == "Pouch picking station"
+        for component in PAKONA_REFERENCE_COMPONENTS
+    )
+
+    count_one, count_two, count_three = st.columns(3)
+    count_one.metric("Documented Parts", len(PAKONA_REFERENCE_COMPONENTS))
+    count_two.metric("Main Conveyor", feed_count)
+    count_three.metric("Picking Station", pick_count)
+
+    st.caption(
+        "Unknown Pakona model numbers, part numbers and exact OEM names remain "
+        "Not recorded until we confirm them from a nameplate, manual or drawing."
+    )
+
+    if not reference_results:
+        st.info("No documented Pakona components match this search.")
+    else:
+        current_station = None
+
+        for reference_component in reference_results:
+            station_name = station_display_name(
+                str(reference_component.get("station", "Not recorded"))
+            )
+
+            if station_name != current_station:
+                st.write(f"### {station_name}")
+                current_station = station_name
+
+            component_number = reference_component.get(
+                "component_number",
+                "Reference",
+            )
+            component_name = reference_component.get(
+                "component_name",
+                "Unnamed component",
+            )
+
+            with st.expander(
+                f"{component_number} — {component_name}",
+                expanded=False,
+            ):
+                display_reference_component(reference_component)
 
 
 with view_tab:
@@ -835,8 +1336,15 @@ with summary_tab:
         0,
     )
 
-    st.metric(
-        "Total Components",
+    summary_reference_column, summary_saved_column = st.columns(2)
+
+    summary_reference_column.metric(
+        "Pakona Reference Components",
+        len(PAKONA_REFERENCE_COMPONENTS),
+    )
+
+    summary_saved_column.metric(
+        "Saved Components",
         total_components,
     )
 
