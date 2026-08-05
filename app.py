@@ -100,7 +100,7 @@ st.html(
         border-color: #3b82f6;
     }
 
-    /* Hide Streamlit decoration */
+    /* Hide Streamlit decoration while preserving sidebar reopening */
     #MainMenu {
         visibility: hidden;
     }
@@ -113,10 +113,46 @@ st.html(
         background: transparent;
     }
 
-    [data-testid="stToolbar"],
     [data-testid="stDecoration"],
-    [data-testid="stStatusWidget"] {
+    [data-testid="stStatusWidget"],
+    [data-testid="stToolbarActions"],
+    [data-testid="stMainMenu"],
+    [data-testid="stAppDeployButton"] {
         display: none !important;
+    }
+
+    /*
+       Keep the toolbar available because newer Streamlit versions
+       place the sidebar reopen button inside it.
+    */
+    [data-testid="stToolbar"] {
+        display: flex !important;
+        background: transparent !important;
+    }
+
+    /* Current Streamlit sidebar reopen button */
+    [data-testid="stExpandSidebarButton"] {
+        display: flex !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        background: var(--navy) !important;
+        color: white !important;
+        border-radius: 9px !important;
+        padding: 0.3rem !important;
+        z-index: 999999 !important;
+    }
+
+    [data-testid="stExpandSidebarButton"] svg {
+        color: white !important;
+        fill: currentColor !important;
+    }
+
+    /* Compatibility with older Streamlit sidebar controls */
+    [data-testid="stSidebarCollapsedControl"] {
+        display: flex !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        z-index: 999999 !important;
     }
 
     /* Typography */
@@ -373,7 +409,6 @@ if recycle_bin_ready:
     try:
         purge_expired_machines(supabase)
     except Exception:
-        # Linked records may intentionally prevent automatic permanent removal.
         pass
 
     try:
@@ -386,7 +421,6 @@ if recycle_bin_ready:
     except Exception:
         deleted_machines = []
 else:
-    # Backward-compatible fallback until the one-time SQL migration is run.
     machines = load_table("machines")
     deleted_machines = []
 
@@ -429,7 +463,6 @@ def load_app_settings() -> dict:
                 **response.data[0],
             }
     except Exception:
-        # Keep the dashboard usable before the app_settings table is created.
         pass
 
     return default_settings
@@ -693,7 +726,9 @@ if machines:
         list(machine_choices.keys())[0],
     )
 
-    switch_column, menu_column, add_column = st.columns([4, 0.65, 1.25])
+    switch_column, menu_column, add_column = st.columns(
+        [4, 0.65, 1.25]
+    )
 
     with switch_column:
         chosen_name = st.selectbox(
@@ -814,8 +849,12 @@ if machines:
 
             <div class="machine-details">
                 <div class="machine-detail">
-                    <div class="detail-label">Manufacturer</div>
-                    <div class="detail-value">{manufacturer}</div>
+                    <div class="detail-label">
+                        Manufacturer
+                    </div>
+                    <div class="detail-value">
+                        {manufacturer}
+                    </div>
                 </div>
 
                 <div class="machine-detail">
@@ -871,7 +910,10 @@ if machines:
                     key=f"unlock_delete_{machine_id}",
                     use_container_width=True,
                 ):
-                    if hmac.compare_digest(entered_pin, expected_pin):
+                    if hmac.compare_digest(
+                        entered_pin,
+                        expected_pin,
+                    ):
                         st.session_state.admin_actions_unlocked = True
                         st.rerun()
                     else:
@@ -906,7 +948,10 @@ if machines:
                     ),
                 ):
                     try:
-                        soft_delete_machine(supabase, machine_id)
+                        soft_delete_machine(
+                            supabase,
+                            machine_id,
+                        )
 
                         remaining_machines = [
                             machine
@@ -919,14 +964,20 @@ if machines:
                             if remaining_machines
                             else None
                         )
+
                         st.session_state.pending_machine_delete = None
+
                         st.session_state.dashboard_flash_message = (
                             f"{machine_name_raw} was moved to the "
                             "Recycle Bin."
                         )
+
                         st.rerun()
+
                     except Exception as error:
-                        st.error(f"Unable to delete machine: {error}")
+                        st.error(
+                            f"Unable to delete machine: {error}"
+                        )
 
             with cancel_column:
                 if st.button(
@@ -938,7 +989,9 @@ if machines:
                     st.rerun()
 
 else:
-    st.info("No machine registered. Select Add Machine to begin.")
+    st.info(
+        "No machine registered. Select Add Machine to begin."
+    )
 
 
 # =========================================================
@@ -946,7 +999,9 @@ else:
 # =========================================================
 
 if st.session_state.show_add_machine:
-    st.html('<div class="section-heading">Add New Machine</div>')
+    st.html(
+        '<div class="section-heading">Add New Machine</div>'
+    )
 
     with st.form("add_machine_form"):
         left, right = st.columns(2)
@@ -958,7 +1013,10 @@ if st.session_state.show_add_machine:
 
         with right:
             default_location = str(
-                app_settings.get("default_machine_location") or ""
+                app_settings.get(
+                    "default_machine_location"
+                )
+                or ""
             )
 
             status_options = [
@@ -968,7 +1026,10 @@ if st.session_state.show_add_machine:
             ]
 
             default_status = str(
-                app_settings.get("default_machine_status") or "Online"
+                app_settings.get(
+                    "default_machine_status"
+                )
+                or "Online"
             )
 
             if default_status not in status_options:
@@ -985,7 +1046,9 @@ if st.session_state.show_add_machine:
                 index=status_options.index(default_status),
             )
 
-            new_description = st.text_area("Description")
+            new_description = st.text_area(
+                "Description"
+            )
 
         save_machine = st.form_submit_button(
             "Save Machine",
@@ -994,10 +1057,14 @@ if st.session_state.show_add_machine:
 
         if save_machine:
             if not new_machine_name.strip():
-                st.error("Machine name is required.")
+                st.error(
+                    "Machine name is required."
+                )
 
             elif not database_connected:
-                st.error("Cloud database is disconnected.")
+                st.error(
+                    "Cloud database is disconnected."
+                )
 
             else:
                 try:
@@ -1005,12 +1072,18 @@ if st.session_state.show_add_machine:
                         supabase.table("machines")
                         .insert(
                             {
-                                "machine_name": new_machine_name.strip(),
-                                "manufacturer": new_manufacturer.strip(),
-                                "model": new_model.strip(),
-                                "location": new_location.strip(),
-                                "description": new_description.strip(),
-                                "status": new_status,
+                                "machine_name":
+                                    new_machine_name.strip(),
+                                "manufacturer":
+                                    new_manufacturer.strip(),
+                                "model":
+                                    new_model.strip(),
+                                "location":
+                                    new_location.strip(),
+                                "description":
+                                    new_description.strip(),
+                                "status":
+                                    new_status,
                             }
                         )
                         .execute()
@@ -1029,16 +1102,20 @@ if st.session_state.show_add_machine:
 
                     module_rows = [
                         {
-                            "machine_id": new_machine["id"],
-                            "module_name": module_name,
-                            "enabled": True,
+                            "machine_id":
+                                new_machine["id"],
+                            "module_name":
+                                module_name,
+                            "enabled":
+                                True,
                         }
                         for module_name in default_modules
                     ]
 
                     try:
                         (
-                            supabase.table("machine_modules")
+                            supabase
+                            .table("machine_modules")
                             .insert(module_rows)
                             .execute()
                         )
@@ -1048,20 +1125,28 @@ if st.session_state.show_add_machine:
                     st.session_state.selected_machine_id = (
                         new_machine["id"]
                     )
+
                     st.session_state.show_add_machine = False
 
-                    st.success("Machine added successfully.")
+                    st.success(
+                        "Machine added successfully."
+                    )
+
                     st.rerun()
 
                 except Exception as error:
-                    st.error(f"Unable to save machine: {error}")
+                    st.error(
+                        f"Unable to save machine: {error}"
+                    )
 
 
 # =========================================================
 # QUICK ACTIONS
 # =========================================================
 
-st.html('<div class="section-heading">Quick Actions</div>')
+st.html(
+    '<div class="section-heading">Quick Actions</div>'
+)
 
 action_1, action_2, action_3, action_4 = st.columns(4)
 
@@ -1070,7 +1155,9 @@ with action_1:
         """
         <div class="action-card">
             <div class="action-icon">🔧</div>
-            <div class="action-title">Diagnose a Fault</div>
+            <div class="action-title">
+                Diagnose a Fault
+            </div>
             <div class="action-note">
                 Find possible causes and recommended checks.
             </div>
@@ -1089,7 +1176,9 @@ with action_2:
         """
         <div class="action-card">
             <div class="action-icon">📖</div>
-            <div class="action-title">Browse Recipes</div>
+            <div class="action-title">
+                Browse Recipes
+            </div>
             <div class="action-note">
                 Search and review machine recipe parameters.
             </div>
@@ -1108,7 +1197,9 @@ with action_3:
         """
         <div class="action-card">
             <div class="action-icon">📋</div>
-            <div class="action-title">Maintenance History</div>
+            <div class="action-title">
+                Maintenance History
+            </div>
             <div class="action-note">
                 View servicing and maintenance records.
             </div>
@@ -1127,7 +1218,9 @@ with action_4:
         """
         <div class="action-card">
             <div class="action-icon">⚙️</div>
-            <div class="action-title">Machine Components</div>
+            <div class="action-title">
+                Machine Components
+            </div>
             <div class="action-note">
                 Explore machine parts and components.
             </div>
@@ -1146,7 +1239,9 @@ with action_4:
 # RECENT ACTIVITY
 # =========================================================
 
-st.html('<div class="section-heading">Recent Activity</div>')
+st.html(
+    '<div class="section-heading">Recent Activity</div>'
+)
 
 activities = []
 
@@ -1168,18 +1263,37 @@ if activities:
     activity_rows = []
 
     for activity in activities:
-        machine_details = activity.get("machines") or {}
+        machine_details = (
+            activity.get("machines") or {}
+        )
 
         activity_rows.append(
             {
-                "Machine": machine_details.get(
-                    "machine_name",
-                    "Unknown Machine",
-                ),
-                "Activity": activity.get("description", ""),
-                "Type": activity.get("activity_type", ""),
-                "Status": activity.get("status", ""),
-                "Time": activity.get("created_at", ""),
+                "Machine":
+                    machine_details.get(
+                        "machine_name",
+                        "Unknown Machine",
+                    ),
+                "Activity":
+                    activity.get(
+                        "description",
+                        "",
+                    ),
+                "Type":
+                    activity.get(
+                        "activity_type",
+                        "",
+                    ),
+                "Status":
+                    activity.get(
+                        "status",
+                        "",
+                    ),
+                "Time":
+                    activity.get(
+                        "created_at",
+                        "",
+                    ),
             }
         )
 
@@ -1190,7 +1304,9 @@ if activities:
     )
 
 else:
-    st.info("Recent operational activities will appear here.")
+    st.info(
+        "Recent operational activities will appear here."
+    )
 
 
 # =========================================================
