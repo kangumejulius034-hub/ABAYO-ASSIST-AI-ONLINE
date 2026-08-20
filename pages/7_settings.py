@@ -4,7 +4,14 @@ from html import escape
 
 import streamlit as st
 
+from core.access import configured_access_password, require_app_access
+from core.auth import configured_admin_pin
+from core.constants import APP_VERSION
+from core.database import check_database
+from core.settings import load_app_settings
 from supabase_engine import get_supabase_client
+from ui.sidebar import render_sidebar
+from ui.theme import apply_theme
 
 
 # =========================================================
@@ -170,6 +177,8 @@ st.html(
     </style>
     """
 )
+apply_theme(max_width=1150)
+require_app_access()
 
 
 # =========================================================
@@ -178,54 +187,18 @@ st.html(
 
 try:
     supabase = get_supabase_client()
-    database_connected = True
+    database_connected = check_database(supabase).connected
+    if not database_connected:
+        supabase = None
 except Exception:
     supabase = None
     database_connected = False
 
 
-DEFAULT_SETTINGS = {
-    "id": "global",
-    "display_name": "Kangume Julius",
-    "job_title": "Administrator",
-    "company_name": "",
-    "welcome_title": "Welcome back",
-    "welcome_subtitle": (
-        "Monitor machines, diagnose faults and preserve operational knowledge."
-    ),
-    "support_email": "",
-    "default_machine_location": "",
-    "default_machine_status": "Online",
-}
-
-
 def load_settings() -> dict:
     """Load the global ABAYO settings record."""
 
-    if not database_connected:
-        return DEFAULT_SETTINGS.copy()
-
-    try:
-        response = (
-            supabase.table("app_settings")
-            .select("*")
-            .eq("id", "global")
-            .limit(1)
-            .execute()
-        )
-
-        if response.data:
-            saved_settings = response.data[0]
-
-            return {
-                **DEFAULT_SETTINGS,
-                **saved_settings,
-            }
-
-    except Exception:
-        pass
-
-    return DEFAULT_SETTINGS.copy()
+    return load_app_settings(supabase)
 
 
 def save_settings(settings_data: dict) -> None:
@@ -247,84 +220,7 @@ def save_settings(settings_data: dict) -> None:
 settings = load_settings()
 
 
-# =========================================================
-# SIDEBAR
-# =========================================================
-
-with st.sidebar:
-    st.markdown("## 🔷 ABAYO")
-    st.caption("AI Operations Assistant")
-
-    st.markdown("---")
-
-    st.page_link(
-        "app.py",
-        label="Home",
-        icon="🏠",
-        use_container_width=True,
-    )
-
-    st.markdown("#### OPERATIONS")
-
-    st.page_link(
-        "pages/1_fault_diagnosis.py",
-        label="Fault Diagnosis",
-        icon="🔧",
-        use_container_width=True,
-    )
-
-    st.page_link(
-        "pages/2_recipe_library.py",
-        label="Recipe Library",
-        icon="📖",
-        use_container_width=True,
-    )
-
-    st.page_link(
-        "pages/3_maintenance_history.py",
-        label="Maintenance",
-        icon="🛠️",
-        use_container_width=True,
-    )
-
-    st.page_link(
-        "pages/4_smart_toubleshooter.py",
-        label="Knowledge Base",
-        icon="🧠",
-        use_container_width=True,
-    )
-
-    st.page_link(
-        "pages/5_machine_components.py",
-        label="Machine Components",
-        icon="⚙️",
-        use_container_width=True,
-    )
-
-    st.markdown("#### SYSTEM")
-
-    st.page_link(
-        "pages/6_recycle_bin.py",
-        label="Recycle Bin",
-        icon="🗑️",
-        use_container_width=True,
-    )
-
-    st.page_link(
-        "pages/7_settings.py",
-        label="Settings",
-        icon="⚙️",
-        use_container_width=True,
-    )
-
-    st.markdown("---")
-
-    if database_connected:
-        st.success("● Cloud system connected")
-    else:
-        st.error("● Cloud system disconnected")
-
-    st.caption("System Version 0.6.2")
+render_sidebar(database_connected=database_connected)
 
 
 # =========================================================
@@ -492,7 +388,7 @@ with st.form("abayo_settings_form"):
     save_button = st.form_submit_button(
         "Save Settings",
         type="primary",
-        use_container_width=True,
+        width="stretch",
         disabled=not database_connected,
     )
 
@@ -552,11 +448,22 @@ if "settings_flash_message" in st.session_state:
 st.html('<div class="section-heading">Security</div>')
 
 try:
-    admin_pin_configured = bool(
-        str(st.secrets.get("ABAYO_ADMIN_PIN", "")).strip()
-    )
+    admin_pin_configured = bool(configured_admin_pin(st.secrets))
 except Exception:
     admin_pin_configured = False
+
+try:
+    access_password_configured = bool(configured_access_password(st.secrets))
+except Exception:
+    access_password_configured = False
+
+if access_password_configured:
+    st.success("Application access protection is active.")
+else:
+    st.warning(
+        "ABAYO_ACCESS_PASSWORD is not configured. Add it before exposing "
+        "this internal operations app to the internet."
+    )
 
 
 if admin_pin_configured:
@@ -618,7 +525,7 @@ with system_col_1:
 with system_col_2:
     st.metric(
         "System Version",
-        "0.6.2",
+        APP_VERSION,
     )
 
 with system_col_3:

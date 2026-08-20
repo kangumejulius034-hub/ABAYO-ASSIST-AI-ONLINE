@@ -1,6 +1,7 @@
-import json
 from pathlib import Path
 from typing import Any
+
+from storage.json_store import load_json, save_json
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -15,32 +16,10 @@ COMPONENTS_FILE = (
 def load_components() -> list[dict[str, Any]]:
     """Load all machine component records safely."""
 
-    COMPONENTS_FILE.parent.mkdir(
-        parents=True,
-        exist_ok=True,
-    )
-
-    if not COMPONENTS_FILE.exists():
-        save_components([])
+    data = load_json(COMPONENTS_FILE, [])
+    if not isinstance(data, list):
         return []
-
-    try:
-        with COMPONENTS_FILE.open(
-            "r",
-            encoding="utf-8",
-        ) as file:
-            data = json.load(file)
-
-        if isinstance(data, list):
-            return data
-
-        return []
-
-    except (
-        json.JSONDecodeError,
-        OSError,
-    ):
-        return []
+    return [record for record in data if isinstance(record, dict)]
 
 
 def save_components(
@@ -48,21 +27,7 @@ def save_components(
 ) -> None:
     """Save all machine component records."""
 
-    COMPONENTS_FILE.parent.mkdir(
-        parents=True,
-        exist_ok=True,
-    )
-
-    with COMPONENTS_FILE.open(
-        "w",
-        encoding="utf-8",
-    ) as file:
-        json.dump(
-            records,
-            file,
-            indent=4,
-            ensure_ascii=False,
-        )
+    save_json(COMPONENTS_FILE, records)
 
 
 def generate_component_number(

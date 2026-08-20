@@ -1,0 +1,20 @@
+[project]
+name = "abayo-assist-ai"
+version = "0.7.0"
+description = "Industrial operations knowledge assistant for packaging machines"
+requires-python = ">=3.11,<3.13"
+
+[tool.pytest.ini_options]
+addopts = "-q"
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F"]
+
+[tool.ruff.lint.per-file-ignores]
+"pages/*.py" = ["E402"]

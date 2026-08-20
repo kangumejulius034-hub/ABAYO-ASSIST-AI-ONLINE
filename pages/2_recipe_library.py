@@ -1,4 +1,3 @@
-import json
 import re
 import sys
 from datetime import datetime, timezone
@@ -22,6 +21,11 @@ from recipe_engine import (
     list_recipe_names,
     save_recipe,
 )
+from core.access import require_app_access
+from core.constants import SUPPORTED_MACHINE_MODELS
+from storage.json_store import load_json, save_json
+from ui.sidebar import render_sidebar
+from ui.theme import apply_theme
 
 
 st.set_page_config(
@@ -29,33 +33,12 @@ st.set_page_config(
     page_icon="📖",
     layout="wide",
 )
-
-st.html(
-    """
-    <style>
-    [data-testid="stSidebarCollapsedControl"] {
-        visibility: visible !important; display: flex !important;
-        opacity: 1 !important; position: fixed !important;
-        top: .75rem !important; left: .75rem !important;
-        z-index: 999999 !important; background: #071426 !important;
-        border-radius: 50% !important;
-        box-shadow: 0 4px 12px rgba(0,0,0,.22) !important;
-    }
-    [data-testid="stSidebarCollapsedControl"] button,
-    [data-testid="stSidebarCollapsedControl"] svg,
-    [data-testid="stSidebarCollapseButton"] button,
-    [data-testid="stSidebarCollapseButton"] svg {
-        color: white !important; fill: white !important;
-        stroke: white !important; opacity: 1 !important;
-    }
-    </style>
-    """
-)
+apply_theme()
+require_app_access()
+render_sidebar()
 
 
-MACHINES = [
-    "Pakona PFS AG",
-]
+MACHINES = list(SUPPORTED_MACHINE_MODELS)
 
 RECIPE_STATUSES = [
     "Awaiting confirmation",
@@ -79,20 +62,13 @@ RECYCLED_RECIPES_FILE = (
 def load_json_file(file_path: Path, default: Any) -> Any:
     """Load a local JSON file without breaking the app on bad data."""
 
-    try:
-        with file_path.open("r", encoding="utf-8") as file:
-            return json.load(file)
-    except (FileNotFoundError, json.JSONDecodeError, OSError):
-        return default
+    return load_json(file_path, default)
 
 
 def save_json_file(file_path: Path, data: Any) -> None:
     """Save formatted JSON while preserving Unicode text."""
 
-    file_path.parent.mkdir(parents=True, exist_ok=True)
-
-    with file_path.open("w", encoding="utf-8") as file:
-        json.dump(data, file, indent=4, ensure_ascii=False)
+    save_json(file_path, data)
 
 
 def recipe_matches(
@@ -511,7 +487,7 @@ def display_parameter_tables(
 
         st.dataframe(
             timing_rows,
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
         )
 
@@ -520,7 +496,7 @@ def display_parameter_tables(
 
         st.dataframe(
             single_rows,
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
         )
 
@@ -547,7 +523,7 @@ def display_hmi_images(
             st.image(
                 str(full_path),
                 caption=full_path.name,
-                use_container_width=True,
+                width="stretch",
             )
 
         else:
@@ -843,7 +819,7 @@ def compare_recipes(
 
     st.dataframe(
         comparison_rows,
-        use_container_width=True,
+        width="stretch",
         hide_index=True,
     )
 
@@ -858,7 +834,7 @@ def compare_recipes(
     if differences_only:
         st.dataframe(
             differences_only,
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
         )
 
@@ -1002,12 +978,12 @@ with tab1:
             with st.popover(
                 "⋮",
                 help=f"Options for {selected_recipe}",
-                use_container_width=True,
+                width="stretch",
             ):
                 if st.button(
                     "Open",
                     key=f"open_recipe_{selected_recipe}",
-                    use_container_width=True,
+                    width="stretch",
                 ):
                     st.session_state.open_recipe_name = (
                         selected_recipe
@@ -1018,7 +994,7 @@ with tab1:
                 if st.button(
                     "🗑️ Delete",
                     key=f"delete_recipe_{selected_recipe}",
-                    use_container_width=True,
+                    width="stretch",
                 ):
                     st.session_state.pending_recipe_delete = (
                         selected_recipe
@@ -1063,7 +1039,7 @@ with tab1:
                             "confirm_move_recipe_"
                             f"{selected_recipe}"
                         ),
-                        use_container_width=True,
+                        width="stretch",
                     ):
                         try:
                             move_recipe_to_recycle_bin(
@@ -1087,7 +1063,7 @@ with tab1:
                     if st.button(
                         "Cancel",
                         key=f"cancel_recipe_delete_{selected_recipe}",
-                        use_container_width=True,
+                        width="stretch",
                     ):
                         st.session_state.pending_recipe_delete = None
                         st.rerun()
@@ -1138,7 +1114,7 @@ with tab2:
         if st.button(
             "Compare Recipes",
             type="primary",
-            use_container_width=True,
+            width="stretch",
         ):
             if recipe_a_name == recipe_b_name:
                 st.error(
@@ -1195,7 +1171,7 @@ with tab3:
     if selected_edit_option != "Create a new recipe":
         if st.button(
             "Load Recipe for Editing",
-            use_container_width=True,
+            width="stretch",
         ):
             loaded = load_recipe_for_editing(
                 edit_machine,
@@ -1213,7 +1189,7 @@ with tab3:
     else:
         if st.button(
             "Clear Form for New Recipe",
-            use_container_width=True,
+            width="stretch",
         ):
             st.session_state.edit_recipe_name = ""
             st.session_state.edit_recipe_status = (
@@ -1280,7 +1256,7 @@ with tab3:
             st.image(
                 uploaded_image,
                 caption=uploaded_image.name,
-                use_container_width=True,
+                width="stretch",
             )
 
     st.write("### Enter or Edit Verified Parameters")
@@ -1346,7 +1322,7 @@ with tab3:
     if st.button(
         "Save Recipe and HMI Images",
         type="primary",
-        use_container_width=True,
+        width="stretch",
     ):
         parameters, invalid_lines = (
             parse_parameters(

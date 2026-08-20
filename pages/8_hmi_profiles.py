@@ -1,11 +1,19 @@
 from __future__ import annotations
 
 from html import escape
+import logging
 
 import pandas as pd
 import streamlit as st
 
+from core.access import require_app_access
+from core.database import check_database, select_rows
+from core.machines import machine_options
 from supabase_engine import get_supabase_client
+from ui.sidebar import render_sidebar
+from ui.theme import apply_theme
+
+LOGGER = logging.getLogger(__name__)
 
 
 st.set_page_config(
@@ -105,11 +113,15 @@ st.html(
     </style>
     """
 )
+apply_theme()
+require_app_access()
 
 
 try:
     supabase = get_supabase_client()
-    database_connected = True
+    database_connected = check_database(supabase).connected
+    if not database_connected:
+        supabase = None
 except Exception:
     supabase = None
     database_connected = False
@@ -119,8 +131,7 @@ def load_rows(table_name: str) -> list[dict]:
     if not database_connected:
         return []
     try:
-        result = supabase.table(table_name).select("*").execute()
-        return result.data or []
+        return select_rows(supabase, table_name)
     except Exception:
         return []
 
@@ -139,28 +150,7 @@ def table_is_ready() -> bool:
 machines = load_rows("machines")
 hmi_ready = table_is_ready()
 
-with st.sidebar:
-    st.markdown("## 🔷 ABAYO")
-    st.caption("AI Operations Assistant")
-    st.markdown("---")
-
-    st.page_link("app.py", label="Home", icon="🏠", use_container_width=True)
-    st.markdown("#### OPERATIONS")
-    st.page_link("pages/1_fault_diagnosis.py", label="Fault Diagnosis", icon="🔧", use_container_width=True)
-    st.page_link("pages/2_recipe_library.py", label="Recipe Library", icon="📖", use_container_width=True)
-    st.page_link("pages/3_maintenance_history.py", label="Maintenance", icon="🛠️", use_container_width=True)
-    st.page_link("pages/4_smart_toubleshooter.py", label="Knowledge Base", icon="🧠", use_container_width=True)
-    st.page_link("pages/5_machine_components.py", label="Machine Components", icon="⚙️", use_container_width=True)
-    st.page_link("pages/8_hmi_profiles.py", label="HMI Profiles", icon="🖥️", use_container_width=True)
-
-    st.markdown("#### SYSTEM")
-    st.page_link("pages/7_settings.py", label="Settings", icon="⚙️", use_container_width=True)
-
-    st.markdown("---")
-    if database_connected:
-        st.success("● Cloud system connected")
-    else:
-        st.error("● Cloud system disconnected")
+render_sidebar(database_connected=database_connected)
 
 
 st.html(
@@ -190,17 +180,15 @@ if not machines:
     st.warning("No machines are registered. Add a machine from the Home page first.")
     st.stop()
 
-machine_map = {
-    str(machine.get("machine_name") or f"Machine {machine.get('id')}"): machine
-    for machine in machines
-}
-
-machine_names = list(machine_map.keys())
+machine_by_id = {machine.get("id"): machine for machine in machines}
+machine_choices = machine_options(machines)
+machine_names = [label for label, _machine_id in machine_choices]
+machine_id_by_label = dict(machine_choices)
 selected_id = st.session_state.get("selected_machine_id")
 selected_index = 0
 
-for index, name in enumerate(machine_names):
-    if machine_map[name].get("id") == selected_id:
+for index, (_label, machine_id) in enumerate(machine_choices):
+    if machine_id == selected_id:
         selected_index = index
         break
 
@@ -210,8 +198,8 @@ selected_machine_name = st.selectbox(
     index=selected_index,
     help="Every imported profile is saved only under this machine.",
 )
-selected_machine = machine_map[selected_machine_name]
-machine_id = selected_machine.get("id")
+machine_id = machine_id_by_label[selected_machine_name]
+selected_machine = machine_by_id[machine_id]
 st.session_state.selected_machine_id = machine_id
 
 st.html(
@@ -289,7 +277,7 @@ with import_tab:
             except Exception as error:
                 st.error(f"Unable to read CSV: {error}")
         else:
-            st.image(source_file, caption="HMI source image", use_container_width=True)
+            st.image(source_file, caption="HMI source image", width="stretch")
 
     default_parameters = pd.DataFrame(
         [
@@ -306,7 +294,7 @@ with import_tab:
     edited_parameters = st.data_editor(
         st.session_state.hmi_parameter_editor,
         num_rows="dynamic",
-        use_container_width=True,
+        width="stretch",
         hide_index=True,
         column_config={
             "Parameter": st.column_config.TextColumn("Parameter *"),
@@ -322,7 +310,7 @@ with import_tab:
         "I have checked these values against the selected machine's HMI."
     )
 
-    if st.button("Save HMI Profile", type="primary", use_container_width=True):
+    if st.button("Save HMI Profile", type="primary", width="stretch"):
         cleaned = edited_parameters.fillna("").astype(str)
         cleaned = cleaned[
             (cleaned["Parameter"].str.strip() != "")
@@ -336,6 +324,7 @@ with import_tab:
         elif not confirm_checked:
             st.error("Confirm that you checked the values against the HMI.")
         else:
+            profile_id = None
             try:
                 profile_response = (
                     supabase.table("machine_hmi_profiles")
@@ -375,6 +364,20 @@ with import_tab:
                 st.success(f"{profile_name.strip()} was saved under {selected_machine_name}.")
                 st.rerun()
             except Exception as error:
+                if profile_id is not None:
+                    try:
+                        (
+                            supabase.table("machine_hmi_profiles")
+                            .delete()
+                            .eq("id", profile_id)
+                            .execute()
+                        )
+                    except Exception as cleanup_error:
+                        LOGGER.warning(
+                            "Unable to remove incomplete HMI profile %s: %s",
+                            profile_id,
+                            cleanup_error,
+                        )
                 st.error(f"Unable to save the HMI profile: {error}")
 
 with profiles_tab:
@@ -427,7 +430,7 @@ with profiles_tab:
                         }
                         for row in parameters
                     ]
-                    st.dataframe(display_rows, use_container_width=True, hide_index=True)
+                    st.dataframe(display_rows, width="stretch", hide_index=True)
                 else:
                     st.warning("This profile contains no parameters.")
 
@@ -449,7 +452,10 @@ with compare_tab:
         st.info("Save at least two profiles for this machine before comparing them.")
     else:
         profile_options = {
-            str(row.get("profile_name") or f"Profile {row.get('id')}"): row.get("id")
+            (
+                f"{row.get('profile_name') or 'Profile'} — "
+                f"ID {row.get('id')}"
+            ): row.get("id")
             for row in compare_profiles
         }
         left_name, right_name = st.columns(2)
@@ -499,6 +505,6 @@ with compare_tab:
                         }
                     )
 
-                st.dataframe(comparison_rows, use_container_width=True, hide_index=True)
+                st.dataframe(comparison_rows, width="stretch", hide_index=True)
             except Exception as error:
                 st.error(f"Unable to compare profiles: {error}")

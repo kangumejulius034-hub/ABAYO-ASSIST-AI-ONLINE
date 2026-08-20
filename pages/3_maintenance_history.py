@@ -1,4 +1,3 @@
-import json
 import re
 import sys
 from datetime import datetime, timezone
@@ -25,8 +24,14 @@ from maintenance_engine import (
     load_maintenance_records,
     save_all_maintenance_records,
 )
+from core.access import require_app_access
+from core.constants import STATIONS as MACHINE_STATIONS
+from core.constants import SUPPORTED_MACHINE_MODELS
 
 from recipe_engine import list_recipe_names
+from storage.json_store import load_json, save_json
+from ui.sidebar import render_sidebar
+from ui.theme import apply_theme
 
 
 st.set_page_config(
@@ -34,47 +39,13 @@ st.set_page_config(
     page_icon="📝",
     layout="wide",
 )
-
-st.html(
-    """
-    <style>
-    [data-testid="stSidebarCollapsedControl"] {
-        visibility: visible !important; display: flex !important;
-        opacity: 1 !important; position: fixed !important;
-        top: .75rem !important; left: .75rem !important;
-        z-index: 999999 !important; background: #071426 !important;
-        border-radius: 50% !important;
-        box-shadow: 0 4px 12px rgba(0,0,0,.22) !important;
-    }
-    [data-testid="stSidebarCollapsedControl"] button,
-    [data-testid="stSidebarCollapsedControl"] svg,
-    [data-testid="stSidebarCollapseButton"] button,
-    [data-testid="stSidebarCollapseButton"] svg {
-        color: white !important; fill: white !important;
-        stroke: white !important; opacity: 1 !important;
-    }
-    </style>
-    """
-)
+apply_theme()
+require_app_access()
+render_sidebar()
 
 
-MACHINES = [
-    "Pakona PFS AG",
-]
-
-
-STATIONS = [
-    "General machine problem",
-    "Pouch elevator",
-    "Pouch picking station",
-    "Pouch opening station",
-    "Filling station",
-    "Auger and stirrer",
-    "Incline screw",
-    "Sealing station",
-    "Electrical system",
-    "Pneumatic system",
-]
+MACHINES = list(SUPPORTED_MACHINE_MODELS)
+STATIONS = list(MACHINE_STATIONS)
 
 
 PRODUCTION_STATUSES = [
@@ -132,35 +103,14 @@ def move_maintenance_to_recycle_bin(
     ).isoformat()
     removed_record["_deleted_from"] = "maintenance"
 
-    try:
-        with RECYCLED_MAINTENANCE_FILE.open(
-            "r",
-            encoding="utf-8",
-        ) as file:
-            recycled_records = json.load(file)
-    except (FileNotFoundError, json.JSONDecodeError, OSError):
-        recycled_records = []
+    recycled_records = load_json(RECYCLED_MAINTENANCE_FILE, [])
 
     if not isinstance(recycled_records, list):
         recycled_records = []
 
     recycled_records.append(removed_record)
     save_all_maintenance_records(records)
-    RECYCLED_MAINTENANCE_FILE.parent.mkdir(
-        parents=True,
-        exist_ok=True,
-    )
-
-    with RECYCLED_MAINTENANCE_FILE.open(
-        "w",
-        encoding="utf-8",
-    ) as file:
-        json.dump(
-            recycled_records,
-            file,
-            indent=4,
-            ensure_ascii=False,
-        )
+    save_json(RECYCLED_MAINTENANCE_FILE, recycled_records)
 
 
 def safe_folder_name(text: str) -> str:
@@ -292,7 +242,7 @@ def display_record_images(
                 st.image(
                     str(full_image_path),
                     caption=full_image_path.name,
-                    use_container_width=True,
+                    width="stretch",
                 )
 
             else:
@@ -614,7 +564,7 @@ with tab1:
                 st.image(
                     uploaded_image,
                     caption=uploaded_image.name,
-                    use_container_width=True,
+                    width="stretch",
                 )
 
     confirmation = st.checkbox(
@@ -625,7 +575,7 @@ with tab1:
     if st.button(
         "Save Maintenance Record",
         type="primary",
-        use_container_width=True,
+        width="stretch",
     ):
         if not fault.strip():
             st.error(
@@ -894,12 +844,12 @@ with tab2:
                 with st.popover(
                     "⋮",
                     help=f"Options for {record_number}",
-                    use_container_width=True,
+                    width="stretch",
                 ):
                     if st.button(
                         "Open",
                         key=f"open_maintenance_{record_index}",
-                        use_container_width=True,
+                        width="stretch",
                     ):
                         st.session_state.open_maintenance_record = (
                             record_number
@@ -912,7 +862,7 @@ with tab2:
                     if st.button(
                         "🗑️ Delete",
                         key=f"delete_maintenance_{record_index}",
-                        use_container_width=True,
+                        width="stretch",
                     ):
                         st.session_state.pending_maintenance_delete = (
                             record_number
@@ -960,7 +910,7 @@ with tab2:
                                 "confirm_move_maintenance_"
                                 f"{record_index}"
                             ),
-                            use_container_width=True,
+                            width="stretch",
                         ):
                             try:
                                 move_maintenance_to_recycle_bin(
@@ -984,7 +934,7 @@ with tab2:
                         if st.button(
                             "Cancel",
                             key=f"cancel_maintenance_{record_index}",
-                            use_container_width=True,
+                            width="stretch",
                         ):
                             st.session_state.pending_maintenance_delete = None
                             st.rerun()
@@ -1012,7 +962,7 @@ with tab2:
 
         if st.button(
             "Open Maintenance Record",
-            use_container_width=True,
+            width="stretch",
         ):
             selected_record = get_maintenance_record(
                 selected_record_number
@@ -1127,7 +1077,7 @@ with tab3:
 
         st.dataframe(
             station_rows,
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
         )
 
@@ -1166,7 +1116,7 @@ with tab3:
 
         st.dataframe(
             recipe_rows,
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
         )
 

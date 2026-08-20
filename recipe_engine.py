@@ -1,6 +1,7 @@
-import json
 from pathlib import Path
 from typing import Any
+
+from storage.json_store import load_json, save_json
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -10,26 +11,10 @@ RECIPES_FILE = BASE_DIR / "knowledge" / "recipes.json"
 def load_recipes() -> list[dict[str, Any]]:
     """Load all recipe records safely."""
 
-    try:
-        with RECIPES_FILE.open("r", encoding="utf-8") as file:
-            data = json.load(file)
-
-        if isinstance(data, list):
-            return data
-
+    data = load_json(RECIPES_FILE, [])
+    if not isinstance(data, list):
         return []
-
-    except FileNotFoundError:
-        RECIPES_FILE.parent.mkdir(
-            parents=True,
-            exist_ok=True,
-        )
-
-        save_all_recipes([])
-        return []
-
-    except json.JSONDecodeError:
-        return []
+    return [record for record in data if isinstance(record, dict)]
 
 
 def save_all_recipes(
@@ -37,21 +22,7 @@ def save_all_recipes(
 ) -> None:
     """Save the complete recipe database."""
 
-    RECIPES_FILE.parent.mkdir(
-        parents=True,
-        exist_ok=True,
-    )
-
-    with RECIPES_FILE.open(
-        "w",
-        encoding="utf-8",
-    ) as file:
-        json.dump(
-            recipes,
-            file,
-            indent=4,
-            ensure_ascii=False,
-        )
+    save_json(RECIPES_FILE, recipes)
 
 
 def recipe_sort_key(
