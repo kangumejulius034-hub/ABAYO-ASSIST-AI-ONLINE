@@ -1,4 +1,3 @@
-import json
 import re
 import sys
 from datetime import datetime, timezone
@@ -14,6 +13,8 @@ if str(PROJECT_ROOT) not in sys.path:
 
 
 import component_engine
+from core.access import require_app_access
+from core.constants import STATIONS as MACHINE_STATIONS
 
 from component_engine import (
     add_component,
@@ -21,6 +22,9 @@ from component_engine import (
     load_components,
     search_components,
 )
+from storage.json_store import load_json, save_json
+from ui.sidebar import render_sidebar
+from ui.theme import apply_theme
 
 
 st.set_page_config(
@@ -28,42 +32,12 @@ st.set_page_config(
     page_icon="⚙️",
     layout="wide",
 )
-
-st.html(
-    """
-    <style>
-    [data-testid="stSidebarCollapsedControl"] {
-        visibility: visible !important; display: flex !important;
-        opacity: 1 !important; position: fixed !important;
-        top: .75rem !important; left: .75rem !important;
-        z-index: 999999 !important; background: #071426 !important;
-        border-radius: 50% !important;
-        box-shadow: 0 4px 12px rgba(0,0,0,.22) !important;
-    }
-    [data-testid="stSidebarCollapsedControl"] button,
-    [data-testid="stSidebarCollapsedControl"] svg,
-    [data-testid="stSidebarCollapseButton"] button,
-    [data-testid="stSidebarCollapseButton"] svg {
-        color: white !important; fill: white !important;
-        stroke: white !important; opacity: 1 !important;
-    }
-    </style>
-    """
-)
+apply_theme()
+require_app_access()
+render_sidebar()
 
 
-STATIONS = [
-    "General machine problem",
-    "Pouch elevator",
-    "Pouch picking station",
-    "Pouch opening station",
-    "Filling station",
-    "Auger and stirrer",
-    "Incline screw",
-    "Sealing station",
-    "Electrical system",
-    "Pneumatic system",
-]
+STATIONS = list(MACHINE_STATIONS)
 
 
 CATEGORIES = [
@@ -534,15 +508,7 @@ def save_active_components(components: list[dict]) -> None:
         component_file_candidates[0],
     )
 
-    component_file.parent.mkdir(parents=True, exist_ok=True)
-
-    with component_file.open("w", encoding="utf-8") as file:
-        json.dump(
-            components,
-            file,
-            indent=4,
-            ensure_ascii=False,
-        )
+    save_json(component_file, components)
 
 
 def move_component_to_recycle_bin(
@@ -570,35 +536,14 @@ def move_component_to_recycle_bin(
     ).isoformat()
     removed_component["_deleted_from"] = "components"
 
-    try:
-        with RECYCLED_COMPONENTS_FILE.open(
-            "r",
-            encoding="utf-8",
-        ) as file:
-            recycled_components = json.load(file)
-    except (FileNotFoundError, json.JSONDecodeError, OSError):
-        recycled_components = []
+    recycled_components = load_json(RECYCLED_COMPONENTS_FILE, [])
 
     if not isinstance(recycled_components, list):
         recycled_components = []
 
     recycled_components.append(removed_component)
     save_active_components(components)
-    RECYCLED_COMPONENTS_FILE.parent.mkdir(
-        parents=True,
-        exist_ok=True,
-    )
-
-    with RECYCLED_COMPONENTS_FILE.open(
-        "w",
-        encoding="utf-8",
-    ) as file:
-        json.dump(
-            recycled_components,
-            file,
-            indent=4,
-            ensure_ascii=False,
-        )
+    save_json(RECYCLED_COMPONENTS_FILE, recycled_components)
 
 
 def safe_folder_name(text: str) -> str:
@@ -716,7 +661,7 @@ def display_component_images(
             st.image(
                 str(full_path),
                 caption=full_path.name,
-                use_container_width=True,
+                width="stretch",
             )
 
 
@@ -987,12 +932,12 @@ with view_tab:
                 with st.popover(
                     "⋮",
                     help=f"Options for {component_name}",
-                    use_container_width=True,
+                    width="stretch",
                 ):
                     if st.button(
                         "Open",
                         key=f"open_component_{component_index}",
-                        use_container_width=True,
+                        width="stretch",
                     ):
                         st.session_state.open_component_number = (
                             component_number
@@ -1003,7 +948,7 @@ with view_tab:
                     if st.button(
                         "🗑️ Delete",
                         key=f"delete_component_{component_index}",
-                        use_container_width=True,
+                        width="stretch",
                     ):
                         st.session_state.pending_component_delete = (
                             component_number
@@ -1050,7 +995,7 @@ with view_tab:
                             type="primary",
                             disabled=not confirm_delete,
                             key=f"confirm_move_component_{component_index}",
-                            use_container_width=True,
+                            width="stretch",
                         ):
                             try:
                                 move_component_to_recycle_bin(
@@ -1074,7 +1019,7 @@ with view_tab:
                         if st.button(
                             "Cancel",
                             key=f"cancel_component_{component_index}",
-                            use_container_width=True,
+                            width="stretch",
                         ):
                             st.session_state.pending_component_delete = None
                             st.rerun()
@@ -1234,7 +1179,7 @@ with add_tab:
                 st.image(
                     uploaded_image,
                     caption=uploaded_image.name,
-                    use_container_width=True,
+                    width="stretch",
                 )
 
     confirmation = st.checkbox(
@@ -1245,7 +1190,7 @@ with add_tab:
     if st.button(
         "Save Machine Component",
         type="primary",
-        use_container_width=True,
+        width="stretch",
         key="save_component_button",
     ):
         if not component_name.strip():

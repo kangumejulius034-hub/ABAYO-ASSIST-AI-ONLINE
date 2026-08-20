@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-import hmac
-import json
+import logging
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -15,6 +14,15 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 import component_engine
+from core.access import require_app_access
+from core.auth import (
+    admin_is_unlocked as session_admin_is_unlocked,
+    configured_admin_pin as read_admin_pin,
+    lock_admin as lock_admin_session,
+    unlock_admin as unlock_admin_session,
+)
+from core.constants import APP_VERSION
+from core.database import check_database
 from maintenance_engine import (
     load_maintenance_records,
     save_all_maintenance_records,
@@ -35,6 +43,11 @@ from troubleshooting_engine import (
     load_troubleshooting,
     save_troubleshooting,
 )
+from storage.json_store import load_json, save_json
+from ui.sidebar import render_sidebar
+from ui.theme import apply_theme
+
+LOGGER = logging.getLogger(__name__)
 
 
 st.set_page_config(
@@ -182,6 +195,8 @@ st.html(
     </style>
     """
 )
+apply_theme()
+require_app_access()
 
 
 LOCAL_RECYCLE_BINS = {
@@ -213,11 +228,7 @@ LOCAL_RECYCLE_BINS = {
 
 
 def load_json_list(file_path: Path) -> list[dict[str, Any]]:
-    try:
-        with file_path.open("r", encoding="utf-8") as file:
-            data = json.load(file)
-    except (FileNotFoundError, json.JSONDecodeError, OSError):
-        return []
+    data = load_json(file_path, [])
 
     if not isinstance(data, list):
         return []
@@ -233,10 +244,7 @@ def save_json_list(
     file_path: Path,
     records: list[dict[str, Any]],
 ) -> None:
-    file_path.parent.mkdir(parents=True, exist_ok=True)
-
-    with file_path.open("w", encoding="utf-8") as file:
-        json.dump(records, file, indent=4, ensure_ascii=False)
+    save_json(file_path, records)
 
 
 def local_record_name(
@@ -418,7 +426,7 @@ def display_local_record(record: dict[str, Any]) -> None:
             if rows:
                 st.dataframe(
                     rows,
-                    use_container_width=True,
+                    width="stretch",
                     hide_index=True,
                 )
 
@@ -428,13 +436,13 @@ def display_local_record(record: dict[str, Any]) -> None:
 
 def configured_admin_pin() -> str:
     try:
-        return str(st.secrets.get("ABAYO_ADMIN_PIN", "")).strip()
+        return read_admin_pin(st.secrets)
     except Exception:
         return ""
 
 
 def admin_is_unlocked() -> bool:
-    return bool(st.session_state.get("admin_actions_unlocked", False))
+    return session_admin_is_unlocked(st.session_state)
 
 
 def render_admin_access() -> None:
@@ -456,9 +464,9 @@ def render_admin_access() -> None:
                 if st.button(
                     "Lock",
                     key="lock_recycle_admin",
-                    use_container_width=True,
+                    width="stretch",
                 ):
-                    st.session_state.admin_actions_unlocked = False
+                    lock_admin_session(st.session_state)
                     st.rerun()
             return
 
@@ -471,10 +479,13 @@ def render_admin_access() -> None:
         if st.button(
             "Unlock controls",
             key="unlock_recycle_admin",
-            use_container_width=True,
+            width="stretch",
         ):
-            if hmac.compare_digest(entered_pin, expected_pin):
-                st.session_state.admin_actions_unlocked = True
+            if unlock_admin_session(
+                st.session_state,
+                entered_pin,
+                expected_pin,
+            ):
                 st.success("Administrator controls unlocked.")
                 st.rerun()
             else:
@@ -483,7 +494,9 @@ def render_admin_access() -> None:
 
 try:
     supabase = get_supabase_client()
-    database_connected = True
+    database_connected = check_database(supabase).connected
+    if not database_connected:
+        supabase = None
 except Exception:
     supabase = None
     database_connected = False
@@ -497,9 +510,9 @@ recycle_ready = (
 if recycle_ready:
     try:
         purge_expired_machines(supabase)
-    except Exception:
+    except Exception as error:
         # A linked-record foreign key may deliberately block permanent removal.
-        pass
+        LOGGER.warning("Expired recycle-bin purge was blocked: %s", error)
 
 try:
     deleted_machines = (
@@ -524,74 +537,10 @@ total_deleted_items = (
 )
 
 
-with st.sidebar:
-    st.markdown("## 🔷 ABAYO")
-    st.caption("AI Operations Assistant")
-    st.markdown("---")
-
-    st.page_link(
-        "app.py",
-        label="Home",
-        icon="🏠",
-        use_container_width=True,
-    )
-
-    st.markdown("#### MACHINES")
-
-    st.page_link(
-        "pages/1_fault_diagnosis.py",
-        label="Fault Diagnosis",
-        icon="🔧",
-        use_container_width=True,
-    )
-
-    st.page_link(
-        "pages/2_recipe_library.py",
-        label="Recipe Library",
-        icon="📖",
-        use_container_width=True,
-    )
-
-    st.page_link(
-        "pages/3_maintenance_history.py",
-        label="Maintenance",
-        icon="🛠️",
-        use_container_width=True,
-    )
-
-    st.page_link(
-        "pages/4_smart_toubleshooter.py",
-        label="Knowledge Base",
-        icon="🧠",
-        use_container_width=True,
-    )
-
-    st.page_link(
-        "pages/5_machine_components.py",
-        label="Machine Components",
-        icon="⚙️",
-        use_container_width=True,
-    )
-
-    st.page_link(
-        "pages/6_recycle_bin.py",
-        label=f"Recycle Bin ({total_deleted_items})",
-        icon="🗑️",
-        use_container_width=True,
-    )
-
-    st.markdown("---")
-    st.markdown("#### ABAYO ASSISTANT")
-    st.markdown("🤖 **AI Assistant**")
-    st.caption("Coming soon")
-    st.markdown("---")
-
-    if database_connected:
-        st.success("● Cloud system connected")
-    else:
-        st.error("● Cloud system disconnected")
-
-    st.caption("System Version 0.6")
+render_sidebar(
+    database_connected=database_connected,
+    recycle_count=total_deleted_items,
+)
 
 if st.button(
     "🏠 ← MAIN MENU",
@@ -701,7 +650,7 @@ with recycle_tabs[0]:
                     if st.button(
                         "↩️ Restore",
                         key=f"restore_machine_{machine_id}",
-                        use_container_width=True,
+                        width="stretch",
                         disabled=not admin_is_unlocked(),
                     ):
                         try:
@@ -722,7 +671,7 @@ with recycle_tabs[0]:
                     if st.button(
                         "🗑️ Delete Forever",
                         key=f"permanent_delete_{machine_id}",
-                        use_container_width=True,
+                        width="stretch",
                         disabled=not admin_is_unlocked(),
                     ):
                         st.session_state.pending_permanent_delete = (
@@ -750,7 +699,7 @@ with recycle_tabs[0]:
                         "Permanently Delete",
                         key=f"confirm_permanent_delete_{machine_id}",
                         type="primary",
-                        use_container_width=True,
+                        width="stretch",
                         disabled=typed_name.strip() != machine_name,
                     ):
                         try:
@@ -762,6 +711,7 @@ with recycle_tabs[0]:
                             st.session_state.recycle_flash_message = (
                                 f"{machine_name} was permanently deleted."
                             )
+                            lock_admin_session(st.session_state)
                             st.rerun()
                         except Exception as error:
                             st.error(
@@ -773,7 +723,7 @@ with recycle_tabs[0]:
                     if st.button(
                         "Cancel",
                         key=f"cancel_permanent_delete_{machine_id}",
-                        use_container_width=True,
+                        width="stretch",
                     ):
                         st.session_state.pending_permanent_delete = None
                         st.rerun()
@@ -819,12 +769,12 @@ for tab_index, (
                     with st.popover(
                         "⋮",
                         help=f"Options for {record_name}",
-                        use_container_width=True,
+                        width="stretch",
                     ):
                         if st.button(
                             "Open",
                             key=f"open_recycled_{item_key}",
-                            use_container_width=True,
+                            width="stretch",
                         ):
                             st.session_state.open_recycled_item = item_key
                             st.rerun()
@@ -832,7 +782,7 @@ for tab_index, (
                         if st.button(
                             "↩️ Restore",
                             key=f"restore_recycled_{item_key}",
-                            use_container_width=True,
+                            width="stretch",
                             disabled=not admin_is_unlocked(),
                         ):
                             try:
@@ -860,7 +810,7 @@ for tab_index, (
                         if st.button(
                             "🗑️ Delete Forever",
                             key=f"delete_recycled_{item_key}",
-                            use_container_width=True,
+                            width="stretch",
                             disabled=not admin_is_unlocked(),
                         ):
                             st.session_state.pending_permanent_delete = (
@@ -903,7 +853,7 @@ for tab_index, (
                             type="primary",
                             disabled=not confirm_delete,
                             key=f"confirm_delete_recycled_{item_key}",
-                            use_container_width=True,
+                            width="stretch",
                         ):
                             refreshed_records = load_json_list(
                                 recycle_file
@@ -920,22 +870,23 @@ for tab_index, (
                             st.session_state.recycle_flash_message = (
                                 f"{record_name} was permanently deleted."
                             )
+                            lock_admin_session(st.session_state)
                             st.rerun()
 
                     with cancel_column:
                         if st.button(
                             "Cancel",
                             key=f"cancel_recycled_{item_key}",
-                            use_container_width=True,
+                            width="stretch",
                         ):
                             st.session_state.pending_permanent_delete = None
                             st.rerun()
 
 
 st.html(
-    """
+    f"""
     <div class="app-footer">
-        ABAYO AI Operations Assistant • System Version 0.6
+        ABAYO AI Operations Assistant • System Version {APP_VERSION}
     </div>
     """
 )

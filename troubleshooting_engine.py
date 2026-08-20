@@ -1,8 +1,9 @@
-import json
 import re
 from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Any
+
+from storage.json_store import load_json, save_json
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -358,32 +359,10 @@ def calculate_troubleshooting_score(
 def load_troubleshooting() -> list[dict[str, Any]]:
     """Load all troubleshooting knowledge safely."""
 
-    TROUBLESHOOTING_FILE.parent.mkdir(
-        parents=True,
-        exist_ok=True,
-    )
-
-    if not TROUBLESHOOTING_FILE.exists():
-        save_troubleshooting([])
+    data = load_json(TROUBLESHOOTING_FILE, [])
+    if not isinstance(data, list):
         return []
-
-    try:
-        with TROUBLESHOOTING_FILE.open(
-            "r",
-            encoding="utf-8",
-        ) as file:
-            data = json.load(file)
-
-        if isinstance(data, list):
-            return data
-
-        return []
-
-    except (
-        json.JSONDecodeError,
-        OSError,
-    ):
-        return []
+    return [record for record in data if isinstance(record, dict)]
 
 
 def save_troubleshooting(
@@ -391,21 +370,7 @@ def save_troubleshooting(
 ) -> None:
     """Save all troubleshooting knowledge."""
 
-    TROUBLESHOOTING_FILE.parent.mkdir(
-        parents=True,
-        exist_ok=True,
-    )
-
-    with TROUBLESHOOTING_FILE.open(
-        "w",
-        encoding="utf-8",
-    ) as file:
-        json.dump(
-            records,
-            file,
-            indent=4,
-            ensure_ascii=False,
-        )
+    save_json(TROUBLESHOOTING_FILE, records)
 
 
 def generate_solution_number(

@@ -1,4 +1,3 @@
-import json
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -23,6 +22,8 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from knowledge_engine import diagnose_fault
 from save_engine import save_fault
+from core.access import require_app_access
+from core.constants import STATIONS as MACHINE_STATIONS
 
 from shared_knowledge_engine import (
     get_record_fault,
@@ -31,6 +32,9 @@ from shared_knowledge_engine import (
     get_record_recipe,
     search_all_knowledge,
 )
+from storage.json_store import load_json, save_json
+from ui.sidebar import render_sidebar
+from ui.theme import apply_theme
 
 
 # ---------------------------------------------------------
@@ -42,46 +46,16 @@ st.set_page_config(
     page_icon="🛠️",
     layout="wide",
 )
-
-st.html(
-    """
-    <style>
-    [data-testid="stSidebarCollapsedControl"] {
-        visibility: visible !important; display: flex !important;
-        opacity: 1 !important; position: fixed !important;
-        top: .75rem !important; left: .75rem !important;
-        z-index: 999999 !important; background: #071426 !important;
-        border-radius: 50% !important;
-        box-shadow: 0 4px 12px rgba(0,0,0,.22) !important;
-    }
-    [data-testid="stSidebarCollapsedControl"] button,
-    [data-testid="stSidebarCollapsedControl"] svg,
-    [data-testid="stSidebarCollapseButton"] button,
-    [data-testid="stSidebarCollapseButton"] svg {
-        color: white !important; fill: white !important;
-        stroke: white !important; opacity: 1 !important;
-    }
-    </style>
-    """
-)
+apply_theme()
+require_app_access()
+render_sidebar()
 
 
 # ---------------------------------------------------------
 # CONSTANTS
 # ---------------------------------------------------------
 
-STATIONS = [
-    "General machine problem",
-    "Pouch elevator",
-    "Pouch picking station",
-    "Pouch opening station",
-    "Filling station",
-    "Auger and stirrer",
-    "Incline screw",
-    "Sealing station",
-    "Electrical system",
-    "Pneumatic system",
-]
+STATIONS = list(MACHINE_STATIONS)
 
 FAULTS_FILE = PROJECT_ROOT / "knowledge" / "faults.json"
 RECYCLED_FAULTS_FILE = (
@@ -124,11 +98,7 @@ def safe_list(value: Any) -> list[str]:
 def load_saved_faults() -> list[dict[str, Any]]:
     """Load the editable fault records from the local knowledge file."""
 
-    try:
-        with FAULTS_FILE.open("r", encoding="utf-8") as file:
-            data = json.load(file)
-    except (FileNotFoundError, json.JSONDecodeError, OSError):
-        return []
+    data = load_json(FAULTS_FILE, [])
 
     if not isinstance(data, list):
         return []
@@ -154,34 +124,14 @@ def move_fault_to_recycle_bin(record_index: int) -> None:
     ).isoformat()
     recycled_fault["_deleted_from"] = "faults"
 
-    try:
-        with RECYCLED_FAULTS_FILE.open(
-            "r",
-            encoding="utf-8",
-        ) as file:
-            recycled_faults = json.load(file)
-    except (FileNotFoundError, json.JSONDecodeError, OSError):
-        recycled_faults = []
+    recycled_faults = load_json(RECYCLED_FAULTS_FILE, [])
 
     if not isinstance(recycled_faults, list):
         recycled_faults = []
 
     recycled_faults.append(recycled_fault)
-    FAULTS_FILE.parent.mkdir(parents=True, exist_ok=True)
-
-    with FAULTS_FILE.open("w", encoding="utf-8") as file:
-        json.dump(faults, file, indent=4, ensure_ascii=False)
-
-    with RECYCLED_FAULTS_FILE.open(
-        "w",
-        encoding="utf-8",
-    ) as file:
-        json.dump(
-            recycled_faults,
-            file,
-            indent=4,
-            ensure_ascii=False,
-        )
+    save_json(FAULTS_FILE, faults)
+    save_json(RECYCLED_FAULTS_FILE, recycled_faults)
 
 
 def saved_fault_name(record: dict[str, Any], number: int) -> str:
@@ -294,7 +244,7 @@ def display_images(
             st.image(
                 str(full_path),
                 caption=full_path.name,
-                use_container_width=True,
+                width="stretch",
             )
 
 
@@ -426,13 +376,13 @@ with diagnosis_tab:
         st.image(
             uploaded_file,
             caption=uploaded_file.name,
-            use_container_width=True,
+            width="stretch",
         )
 
     diagnose_button = st.button(
         "Diagnose Fault",
         type="primary",
-        use_container_width=True,
+        width="stretch",
         key="diagnose_fault_button",
     )
 
@@ -993,7 +943,7 @@ with teach_tab:
     if st.button(
         "Save Fault Knowledge",
         type="primary",
-        use_container_width=True,
+        width="stretch",
         key="save_fault_knowledge_button",
     ):
         causes = safe_list(
@@ -1026,33 +976,37 @@ with teach_tab:
 
         else:
             try:
-                save_fault(
+                cloud_saved = save_fault(
                     station=new_station,
                     fault=new_fault.strip(),
                     causes=causes,
                     checks=checks,
                 )
 
-                st.success(
-                    "Fault knowledge saved successfully."
-                )
-
-                st.info(
-                    "The fault is now available in Fault Diagnosis."
-                )
+                if cloud_saved:
+                    st.success("Fault knowledge saved successfully.")
+                    st.info("The fault is now available in Fault Diagnosis.")
+                else:
+                    st.warning(
+                        "The fault was added to the local compatibility file, "
+                        "but the cloud save failed. Retry after reconnecting."
+                    )
 
             except TypeError:
                 try:
-                    save_fault(
+                    cloud_saved = save_fault(
                         new_station,
                         new_fault.strip(),
                         causes,
                         checks,
                     )
 
-                    st.success(
-                        "Fault knowledge saved successfully."
-                    )
+                    if cloud_saved:
+                        st.success("Fault knowledge saved successfully.")
+                    else:
+                        st.warning(
+                            "The local copy was updated, but the cloud save failed."
+                        )
 
                 except Exception as error:
                     st.error(
@@ -1110,12 +1064,12 @@ with saved_faults_tab:
                 with st.popover(
                     "⋮",
                     help=f"Options for {fault_name}",
-                    use_container_width=True,
+                    width="stretch",
                 ):
                     if st.button(
                         "Open",
                         key=f"open_saved_fault_{fault_index}",
-                        use_container_width=True,
+                        width="stretch",
                     ):
                         st.session_state.open_saved_fault_index = (
                             fault_index
@@ -1128,7 +1082,7 @@ with saved_faults_tab:
                     if st.button(
                         "🗑️ Delete",
                         key=f"delete_saved_fault_{fault_index}",
-                        use_container_width=True,
+                        width="stretch",
                     ):
                         st.session_state.pending_fault_delete_index = (
                             fault_index
@@ -1227,7 +1181,7 @@ with saved_faults_tab:
                             type="primary",
                             disabled=not confirm_delete,
                             key=f"confirm_delete_saved_fault_{fault_index}",
-                            use_container_width=True,
+                            width="stretch",
                         ):
                             try:
                                 move_fault_to_recycle_bin(
@@ -1250,7 +1204,7 @@ with saved_faults_tab:
                         if st.button(
                             "Cancel",
                             key=f"cancel_delete_saved_fault_{fault_index}",
-                            use_container_width=True,
+                            width="stretch",
                         ):
                             st.session_state.pending_fault_delete_index = None
                             st.rerun()

@@ -1,2 +1,12 @@
 [client]
 showSidebarNavigation = false
+
+[browser]
+gatherUsageStats = false
+
+[server]
+enableCORS = true
+enableXsrfProtection = true
+headless = true
+maxUploadSize = 10
+runOnSave = false

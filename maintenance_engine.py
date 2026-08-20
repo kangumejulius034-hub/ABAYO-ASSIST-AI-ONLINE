@@ -1,6 +1,7 @@
-import json
 from pathlib import Path
 from typing import Any
+
+from storage.json_store import load_json, save_json
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -15,29 +16,10 @@ MAINTENANCE_FILE = (
 def load_maintenance_records() -> list[dict[str, Any]]:
     """Load all maintenance records safely."""
 
-    try:
-        with MAINTENANCE_FILE.open(
-            "r",
-            encoding="utf-8",
-        ) as file:
-            data = json.load(file)
-
-        if isinstance(data, list):
-            return data
-
+    data = load_json(MAINTENANCE_FILE, [])
+    if not isinstance(data, list):
         return []
-
-    except FileNotFoundError:
-        MAINTENANCE_FILE.parent.mkdir(
-            parents=True,
-            exist_ok=True,
-        )
-
-        save_all_maintenance_records([])
-        return []
-
-    except json.JSONDecodeError:
-        return []
+    return [record for record in data if isinstance(record, dict)]
 
 
 def save_all_maintenance_records(
@@ -45,21 +27,7 @@ def save_all_maintenance_records(
 ) -> None:
     """Save all maintenance records."""
 
-    MAINTENANCE_FILE.parent.mkdir(
-        parents=True,
-        exist_ok=True,
-    )
-
-    with MAINTENANCE_FILE.open(
-        "w",
-        encoding="utf-8",
-    ) as file:
-        json.dump(
-            records,
-            file,
-            indent=4,
-            ensure_ascii=False,
-        )
+    save_json(MAINTENANCE_FILE, records)
 
 
 def generate_record_number(

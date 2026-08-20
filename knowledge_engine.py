@@ -1,10 +1,11 @@
-import json
-import os
 import re
+from pathlib import Path
 from typing import Any
 
+from storage.json_store import load_json
 
-KNOWLEDGE_PATH = os.path.join("knowledge", "faults.json")
+
+KNOWLEDGE_PATH = Path(__file__).resolve().parent / "knowledge" / "faults.json"
 
 # Words that are too common to help identify a fault.
 STOP_WORDS = {
@@ -31,8 +32,7 @@ STOP_WORDS = {
 def load_faults() -> list[dict[str, Any]]:
     """Load fault records from the local JSON knowledge base."""
 
-    with open(KNOWLEDGE_PATH, "r", encoding="utf-8") as file:
-        data = json.load(file)
+    data = load_json(KNOWLEDGE_PATH, [])
 
     if not isinstance(data, list):
         raise ValueError(
@@ -106,29 +106,6 @@ def diagnose_fault(problem: str, station: str) -> dict:
 
     try:
         faults = load_faults()
-
-    except FileNotFoundError:
-        return {
-            "station": station,
-            "causes": [
-                "The knowledge file could not be found."
-            ],
-            "checks": [
-                "Confirm that knowledge/faults.json exists."
-            ],
-        }
-
-    except json.JSONDecodeError:
-        return {
-            "station": station,
-            "causes": [
-                "The knowledge file contains invalid JSON."
-            ],
-            "checks": [
-                "Check the commas, quotation marks and brackets "
-                "inside faults.json."
-            ],
-        }
 
     except (OSError, ValueError) as error:
         return {
@@ -214,9 +191,9 @@ def diagnose_fault(problem: str, station: str) -> dict:
         )
 
     return {
-    "station": station,
-    "matched_faults": list(dict.fromkeys(matched_faults)),
-    "causes": list(dict.fromkeys(matched_causes)),
-    "checks": list(dict.fromkeys(matched_checks)),
-    "confidence": confidence,
-}
+        "station": station,
+        "matched_faults": list(dict.fromkeys(matched_faults)),
+        "causes": list(dict.fromkeys(matched_causes)),
+        "checks": list(dict.fromkeys(matched_checks)),
+        "confidence": confidence,
+    }
