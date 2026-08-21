@@ -106,3 +106,43 @@ def create_machine(
         return CreateMachineResult(machine=machine, modules_created=False)
 
     return CreateMachineResult(machine=machine, modules_created=True)
+
+
+def update_machine(
+    client: Any,
+    machine_id: Any,
+    *,
+    machine_name: str,
+    manufacturer: str = "",
+    model: str = "",
+    location: str = "",
+    description: str = "",
+    status: str = "Online",
+) -> dict[str, Any]:
+    """Edit one existing machine, including its operational status."""
+
+    clean_name = machine_name.strip()
+    if not clean_name:
+        raise MachineValidationError("Machine name is required.")
+    if machine_id in (None, ""):
+        raise MachineValidationError("A machine must be selected before editing.")
+
+    response = (
+        client.table("machines")
+        .update(
+            {
+                "machine_name": clean_name,
+                "manufacturer": manufacturer.strip(),
+                "model": model.strip(),
+                "location": location.strip(),
+                "description": description.strip(),
+                "status": normalize_machine_status(status),
+            }
+        )
+        .eq("id", machine_id)
+        .execute()
+    )
+
+    if not response.data:
+        raise RuntimeError("Supabase did not confirm the machine update.")
+    return dict(response.data[0])
