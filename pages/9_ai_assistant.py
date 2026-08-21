@@ -23,6 +23,13 @@ if str(PROJECT_ROOT) not in sys.path:
 from core.access import require_app_access
 from core.constants import STATIONS as MACHINE_STATIONS
 
+from ai_engine import (
+    ClaudeGenerationError,
+    configured_anthropic_api_key,
+    configured_anthropic_model,
+    generate_grounded_answer,
+    has_grounding_evidence,
+)
 from knowledge_engine import diagnose_fault
 from maintenance_engine import calculate_summary, filter_maintenance_records
 from recipe_engine import load_recipes
@@ -567,7 +574,15 @@ def render_sources(results: dict[str, Any]) -> None:
 # QUESTION PROCESSING
 # ---------------------------------------------------------
 
-def process_question(question: str, station_filter: str, scopes: list[str]) -> None:
+def process_question(
+    question: str,
+    station_filter: str,
+    scopes: list[str],
+    *,
+    use_claude: bool,
+    anthropic_api_key: str,
+    anthropic_model: str,
+) -> None:
     """Answer one question and store it in the chat history."""
 
     question = question.strip()
@@ -576,14 +591,36 @@ def process_question(question: str, station_filter: str, scopes: list[str]) -> N
         return
 
     analytic_keys = detect_analytics_intent(question)
+    generation_mode = "local"
+    generation_notice = ""
 
     if analytic_keys:
         answer_text, _summary = build_analytics_answer(analytic_keys, station_filter)
         results: dict[str, Any] = {}
+        generation_mode = "calculated"
     else:
         with st.spinner("ABAYO is searching the local knowledge base..."):
             results = run_knowledge_search(question, station_filter, scopes)
-        answer_text = synthesize_answer(results)
+
+        local_answer = synthesize_answer(results)
+        answer_text = local_answer
+
+        if use_claude and anthropic_api_key and has_grounding_evidence(results):
+            with st.spinner("Claude is writing a grounded answer from ABAYO records..."):
+                try:
+                    answer_text = generate_grounded_answer(
+                        question,
+                        station_filter,
+                        results,
+                        api_key=anthropic_api_key,
+                        model=anthropic_model,
+                    )
+                    generation_mode = "claude"
+                except ClaudeGenerationError:
+                    generation_notice = (
+                        "Claude was unavailable, so ABAYO returned its local "
+                        "evidence-based answer instead."
+                    )
 
     st.session_state.ai_assistant_history.append(
         {
@@ -591,6 +628,8 @@ def process_question(question: str, station_filter: str, scopes: list[str]) -> N
             "station": station_filter,
             "answer": answer_text,
             "results": results,
+            "generation_mode": generation_mode,
+            "generation_notice": generation_notice,
         }
     )
 
@@ -609,14 +648,36 @@ page_header(
 )
 
 st.info(
-    "This assistant currently searches ABAYO's own local knowledge base "
-    "only — it isn't connected to a generative AI model yet. It looks "
-    "across maintenance history, shared troubleshooting, machine "
-    "components, the fault knowledge base and the recipe library, then "
-    "summarizes what it finds. This is built so a real AI model can be "
-    "plugged in on top of the same search later without changing the "
-    "data underneath."
+    "ABAYO always searches its own maintenance, troubleshooting, component, "
+    "fault and recipe records first. When Claude is enabled, only the matched "
+    "evidence and your question are sent to Anthropic to produce a clearer "
+    "grounded answer. Exact maintenance statistics are calculated locally."
 )
+
+try:
+    anthropic_api_key = configured_anthropic_api_key(st.secrets)
+    anthropic_model = configured_anthropic_model(st.secrets)
+except Exception:
+    anthropic_api_key = ""
+    anthropic_model = configured_anthropic_model({})
+
+if anthropic_api_key:
+    use_claude = st.toggle(
+        "Use Claude for grounded answers",
+        value=True,
+        key="ai_assistant_use_claude",
+        help=(
+            "Matched ABAYO records and your question will be sent to the "
+            "Anthropic API. Turn this off to keep processing entirely local."
+        ),
+    )
+    st.caption(f"Claude model: {anthropic_model} · Local fallback stays active")
+else:
+    use_claude = False
+    st.caption(
+        "Claude is not configured. ABAYO is using the local evidence-based "
+        "answer generator."
+    )
 
 
 # ---------------------------------------------------------
@@ -685,7 +746,14 @@ if not st.session_state.ai_assistant_history:
 if st.session_state.ai_assistant_pending_question:
     pending_question = st.session_state.ai_assistant_pending_question
     st.session_state.ai_assistant_pending_question = ""
-    process_question(pending_question, station_filter, selected_scopes)
+    process_question(
+        pending_question,
+        station_filter,
+        selected_scopes,
+        use_claude=use_claude,
+        anthropic_api_key=anthropic_api_key,
+        anthropic_model=anthropic_model,
+    )
 
 
 # ---------------------------------------------------------
@@ -698,6 +766,19 @@ for turn in st.session_state.ai_assistant_history:
 
     with st.chat_message("assistant", avatar="🤖"):
         st.write(turn["answer"])
+
+        generation_mode = turn.get("generation_mode", "local")
+        if generation_mode == "claude":
+            st.caption("Answer generated by Claude from the matched ABAYO records")
+        elif generation_mode == "calculated":
+            st.caption("Calculated directly from ABAYO maintenance history")
+        else:
+            st.caption("Answer generated locally from the matched ABAYO records")
+
+        generation_notice = turn.get("generation_notice")
+        if generation_notice:
+            st.warning(generation_notice)
+
         render_sources(turn.get("results") or {})
 
 
@@ -710,7 +791,14 @@ new_question = st.chat_input(
 )
 
 if new_question:
-    process_question(new_question, station_filter, selected_scopes)
+    process_question(
+        new_question,
+        station_filter,
+        selected_scopes,
+        use_claude=use_claude,
+        anthropic_api_key=anthropic_api_key,
+        anthropic_model=anthropic_model,
+    )
     st.rerun()
 
 

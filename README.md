@@ -49,9 +49,14 @@ cannot overwrite one another.
 - `ABAYO_ACCESS_PASSWORD`: protects every Streamlit page before public exposure.
 - `ABAYO_ADMIN_PIN`: provides a separate, short-lived unlock for destructive
   actions.
+- `ANTHROPIC_API_KEY` (optional): enables grounded Claude answers on the AI
+  Assistant page. Create the key in the Anthropic Console and store it only in
+  Streamlit Secrets. Without it, ABAYO keeps using the local answer generator.
+- `ANTHROPIC_MODEL` (optional): overrides the default `claude-sonnet-5` model.
 
 Never commit `.streamlit/secrets.toml` or place a Supabase service-role key in
-browser code.
+browser code. Retrieved ABAYO evidence is sent to Anthropic only when the
+operator enables Claude on the AI Assistant page.
 
 ## Data durability
 
