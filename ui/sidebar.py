@@ -6,6 +6,58 @@ import streamlit as st
 
 from core.access import configured_access_password, logout
 from core.constants import APP_VERSION
+from core.machines import machine_label
+
+
+def _load_sidebar_machines() -> list[dict]:
+    """Load active machines so selection follows the user across every page."""
+
+    try:
+        from core.database import get_supabase_client
+
+        response = get_supabase_client().table("machines").select("*").execute()
+        rows = response.data or []
+        return [
+            dict(row)
+            for row in rows
+            if not row.get("deleted_at")
+        ]
+    except Exception:
+        return []
+
+
+def _render_machine_switcher() -> None:
+    machines = _load_sidebar_machines()
+    if not machines:
+        st.caption("No machine selected")
+        return
+
+    ids = [machine.get("id") for machine in machines]
+    selected_id = st.session_state.get("selected_machine_id")
+    if selected_id not in ids:
+        selected_id = ids[0]
+        st.session_state.selected_machine_id = selected_id
+
+    labels = [machine_label(machine) for machine in machines]
+    selected_index = ids.index(selected_id)
+    chosen_label = st.selectbox(
+        "Active machine",
+        labels,
+        index=selected_index,
+        key="shared_active_machine_label",
+        help="All machine-specific pages are scoped to this machine.",
+    )
+    chosen_id = ids[labels.index(chosen_label)]
+    if chosen_id != st.session_state.get("selected_machine_id"):
+        st.session_state.selected_machine_id = chosen_id
+        for key in (
+            "open_component_number",
+            "pending_component_delete",
+            "pending_fault_delete",
+            "selected_edit_option",
+        ):
+            st.session_state.pop(key, None)
+        st.rerun()
 
 
 def render_sidebar(
@@ -22,7 +74,8 @@ def render_sidebar(
         st.divider()
 
         st.page_link("app.py", label="Home", icon="🏠", width="stretch")
-        st.markdown("#### MACHINES")
+        st.markdown("#### ACTIVE MACHINE")
+        _render_machine_switcher()
 
         if allow_add_machine and st.button(
             "＋ Add Machine",
@@ -32,6 +85,14 @@ def render_sidebar(
             st.session_state.show_add_machine = True
             st.switch_page("app.py")
 
+        st.page_link(
+            "pages/10_machine_settings.py",
+            label="Machine Profile & Status",
+            icon="🏭",
+            width="stretch",
+        )
+
+        st.markdown("#### MACHINE KNOWLEDGE")
         st.page_link(
             "pages/1_fault_diagnosis.py",
             label="Fault Diagnosis",
