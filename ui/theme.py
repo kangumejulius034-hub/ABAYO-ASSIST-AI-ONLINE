@@ -16,6 +16,8 @@ def apply_theme(*, max_width: int = 1250) -> None:
             --abayo-navy-light: #10213c;
             --abayo-blue: #2563eb;
             --abayo-blue-light: #eff6ff;
+            --abayo-blue-soft: #173055;
+            --abayo-blue-hover: #1b365d;
             --abayo-green: #039855;
             --abayo-green-light: #ecfdf3;
             --abayo-orange: #f79009;
@@ -74,6 +76,80 @@ def apply_theme(*, max_width: int = 1250) -> None:
         [data-testid="stSidebar"] .stButton button:hover {{
             background: rgba(37, 99, 235, .28);
             border-color: #3b82f6;
+        }}
+
+        /*
+         * Active-machine selector.
+         * Streamlit's default select field is white, which disappears visually
+         * against ABAYO's dark sidebar. Keep the selected machine readable and
+         * make the control clearly look active.
+         */
+        [data-testid="stSidebar"] [data-testid="stSelectbox"] label,
+        [data-testid="stSidebar"] .stSelectbox label {{
+            color: #ffffff !important;
+            font-weight: 700 !important;
+        }}
+
+        [data-testid="stSidebar"] [data-testid="stSelectbox"] div[data-baseweb="select"] > div,
+        [data-testid="stSidebar"] .stSelectbox div[data-baseweb="select"] > div {{
+            background: var(--abayo-blue-soft) !important;
+            border: 1px solid rgba(147, 197, 253, .5) !important;
+            border-radius: 12px !important;
+            min-height: 48px !important;
+            box-shadow: 0 0 0 1px rgba(37, 99, 235, .08) !important;
+        }}
+
+        [data-testid="stSidebar"] [data-testid="stSelectbox"] div[data-baseweb="select"] > div:hover,
+        [data-testid="stSidebar"] .stSelectbox div[data-baseweb="select"] > div:hover {{
+            background: var(--abayo-blue-hover) !important;
+            border-color: #60a5fa !important;
+        }}
+
+        [data-testid="stSidebar"] [data-testid="stSelectbox"] div[data-baseweb="select"] span,
+        [data-testid="stSidebar"] [data-testid="stSelectbox"] div[data-baseweb="select"] input,
+        [data-testid="stSidebar"] .stSelectbox div[data-baseweb="select"] span,
+        [data-testid="stSidebar"] .stSelectbox div[data-baseweb="select"] input {{
+            color: #ffffff !important;
+            -webkit-text-fill-color: #ffffff !important;
+            font-weight: 650 !important;
+            caret-color: #ffffff !important;
+        }}
+
+        [data-testid="stSidebar"] [data-testid="stSelectbox"] input::placeholder,
+        [data-testid="stSidebar"] .stSelectbox input::placeholder {{
+            color: #bfdbfe !important;
+            -webkit-text-fill-color: #bfdbfe !important;
+            opacity: 1 !important;
+        }}
+
+        [data-testid="stSidebar"] [data-testid="stSelectbox"] svg,
+        [data-testid="stSidebar"] .stSelectbox svg {{
+            color: #ffffff !important;
+            fill: currentColor !important;
+        }}
+
+        /* The dropdown menu is rendered outside the sidebar DOM. */
+        div[data-baseweb="popover"] div[role="listbox"] {{
+            background: #10213c !important;
+            border: 1px solid rgba(147, 197, 253, .28) !important;
+            border-radius: 12px !important;
+            box-shadow: 0 14px 34px rgba(7, 20, 38, .28) !important;
+            overflow: hidden !important;
+        }}
+
+        div[data-baseweb="popover"] div[role="option"] {{
+            color: #ffffff !important;
+            background: #10213c !important;
+        }}
+
+        div[data-baseweb="popover"] div[role="option"]:hover {{
+            background: #173055 !important;
+        }}
+
+        div[data-baseweb="popover"] div[role="option"][aria-selected="true"] {{
+            background: var(--abayo-blue) !important;
+            color: #ffffff !important;
+            font-weight: 700 !important;
         }}
 
         #MainMenu, footer, [data-testid="stDecoration"],
