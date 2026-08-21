@@ -40,12 +40,92 @@ def _render_machine_switcher() -> None:
 
     labels = [machine_label(machine) for machine in machines]
     selected_index = ids.index(selected_id)
+
+    # Keep this selector self-contained so Streamlit theme/DOM changes cannot
+    # make the selected machine unreadable against ABAYO's dark sidebar.
+    st.html(
+        """
+        <style>
+        [data-testid="stSidebar"] [data-testid="stSelectbox"] label {
+            color: #ffffff !important;
+            font-weight: 700 !important;
+        }
+
+        [data-testid="stSidebar"] [data-testid="stSelectbox"] div[data-baseweb="select"] > div,
+        [data-testid="stSidebar"] [data-testid="stSelectbox"] [role="combobox"],
+        [data-testid="stSidebar"] [data-testid="stSelectbox"] [aria-haspopup="listbox"] {
+            background: #0b1f36 !important;
+            background-color: #0b1f36 !important;
+            border: 2px solid #3b82f6 !important;
+            border-radius: 12px !important;
+            min-height: 50px !important;
+            box-shadow: 0 0 0 1px rgba(59, 130, 246, .18) !important;
+            color: #ffffff !important;
+        }
+
+        [data-testid="stSidebar"] [data-testid="stSelectbox"] div[data-baseweb="select"] > div:hover,
+        [data-testid="stSidebar"] [data-testid="stSelectbox"] [role="combobox"]:hover,
+        [data-testid="stSidebar"] [data-testid="stSelectbox"] [aria-haspopup="listbox"]:hover {
+            background: #123055 !important;
+            background-color: #123055 !important;
+            border-color: #60a5fa !important;
+        }
+
+        [data-testid="stSidebar"] [data-testid="stSelectbox"] div[data-baseweb="select"] > div *,
+        [data-testid="stSidebar"] [data-testid="stSelectbox"] [role="combobox"] *,
+        [data-testid="stSidebar"] [data-testid="stSelectbox"] [aria-haspopup="listbox"] * {
+            color: #ffffff !important;
+            -webkit-text-fill-color: #ffffff !important;
+            font-weight: 700 !important;
+        }
+
+        [data-testid="stSidebar"] [data-testid="stSelectbox"] input {
+            background: transparent !important;
+            background-color: transparent !important;
+            color: #ffffff !important;
+            -webkit-text-fill-color: #ffffff !important;
+            caret-color: #ffffff !important;
+            font-weight: 700 !important;
+            opacity: 1 !important;
+        }
+
+        [data-testid="stSidebar"] [data-testid="stSelectbox"] svg {
+            color: #ffffff !important;
+            fill: currentColor !important;
+            opacity: 1 !important;
+        }
+
+        div[data-baseweb="popover"] div[role="listbox"] {
+            background: #10213c !important;
+            border: 1px solid rgba(96, 165, 250, .55) !important;
+            border-radius: 12px !important;
+        }
+
+        div[data-baseweb="popover"] div[role="option"] {
+            background: #10213c !important;
+            color: #ffffff !important;
+            -webkit-text-fill-color: #ffffff !important;
+        }
+
+        div[data-baseweb="popover"] div[role="option"]:hover {
+            background: #173055 !important;
+        }
+
+        div[data-baseweb="popover"] div[role="option"][aria-selected="true"] {
+            background: #2563eb !important;
+            color: #ffffff !important;
+            -webkit-text-fill-color: #ffffff !important;
+            font-weight: 700 !important;
+        }
+        </style>
+        """
+    )
+
     chosen_label = st.selectbox(
         "Active machine",
         labels,
         index=selected_index,
         key="shared_active_machine_label",
-        help="All machine-specific pages are scoped to this machine.",
     )
     chosen_id = ids[labels.index(chosen_label)]
     if chosen_id != st.session_state.get("selected_machine_id"):
