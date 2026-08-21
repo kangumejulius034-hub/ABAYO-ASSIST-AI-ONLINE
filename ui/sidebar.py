@@ -87,8 +87,12 @@ def render_sidebar(
 
         st.divider()
         st.markdown("#### ABAYO ASSISTANT")
-        st.markdown("🤖 **AI Assistant**")
-        st.caption("Coming soon")
+        st.page_link(
+            "pages/9_ai_assistant.py",
+            label="AI Assistant",
+            icon="🤖",
+            width="stretch",
+        )
         st.divider()
 
         if database_connected is True:
