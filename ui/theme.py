@@ -30,9 +30,14 @@ def apply_theme(*, max_width: int = 1250) -> None:
 
         .stApp {{ background: var(--abayo-background); }}
 
+        /*
+         * Streamlit's desktop toolbar is fixed above the document flow.
+         * Keep enough space here so the first page heading never slides
+         * underneath it on laptop/desktop displays.
+         */
         .block-container {{
             max-width: {max_width}px;
-            padding-top: 2.25rem;
+            padding-top: 4.5rem;
             padding-bottom: 3rem;
         }}
 
@@ -110,6 +115,7 @@ def apply_theme(*, max_width: int = 1250) -> None:
             line-height: 1.2;
             font-weight: 800;
             margin: 0;
+            overflow: visible;
         }}
 
         .page-subtitle {{
@@ -208,7 +214,11 @@ def apply_theme(*, max_width: int = 1250) -> None:
         .app-footer {{ color: #98a2b3; text-align: center; margin-top: 2.2rem; font-size: .75rem; }}
 
         @media (max-width: 800px) {{
-            .block-container {{ padding-top: 3.6rem; padding-left: 1rem; padding-right: 1rem; }}
+            .block-container {{
+                padding-top: 4.25rem;
+                padding-left: 1rem;
+                padding-right: 1rem;
+            }}
             .machine-details {{ grid-template-columns: 1fr; gap: .8rem; }}
             .machine-detail, .machine-detail + .machine-detail {{
                 border-left: 0;
