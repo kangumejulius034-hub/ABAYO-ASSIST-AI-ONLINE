@@ -10,3 +10,11 @@ enableXsrfProtection = true
 headless = true
 maxUploadSize = 10
 runOnSave = false
+
+[theme]
+base = "light"
+primaryColor = "#2563EB"
+backgroundColor = "#F6F8FC"
+secondaryBackgroundColor = "#FFFFFF"
+textColor = "#101828"
+font = "sans-serif"
